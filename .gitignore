@@ -1,0 +1,4 @@
+.DS_Store
+*.log
+.parcel-cache
+node_modules/

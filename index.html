@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jeux de Mots — Lecture ou Impro ?</title>
+  <meta name="description" content="Devine si la personne lit vraiment ce qui est écrit, ou invente des mots. Teste l'impro et la dissimulation." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="glow glow-a" aria-hidden="true"></div>
+  <div class="glow glow-b" aria-hidden="true"></div>
+
+  <main id="app">
+    <!-- Accueil -->
+    <section class="screen active" id="screen-home" data-screen="home">
+      <header class="hero">
+        <p class="brand">Jeux de Mots</p>
+        <h1 class="headline">Lit-il vraiment… ou invente-t-il ?</h1>
+        <p class="lede">
+          Une personne lit à voix haute. Les autres doivent deviner :
+          lecture fidèle, ou impro cachée derrière un air sérieux.
+        </p>
+        <div class="cta-row">
+          <button class="btn btn-primary" data-go="setup">Lancer une partie</button>
+          <button class="btn btn-ghost" data-go="rules">Comment jouer</button>
+        </div>
+      </header>
+      <div class="stage-strip" aria-hidden="true">
+        <span>Impro</span>
+        <span>·</span>
+        <span>Dissimulation</span>
+        <span>·</span>
+        <span>Observation</span>
+      </div>
+    </section>
+
+    <!-- Règles -->
+    <section class="screen" id="screen-rules" data-screen="rules">
+      <div class="panel narrow">
+        <button class="back" data-go="home">← Retour</button>
+        <h2>Comment jouer</h2>
+        <ol class="rules">
+          <li><strong>Un lecteur</strong> est tiré au sort. Les autres détournent le regard pendant la mission secrète.</li>
+          <li>La mission est soit <em>Lecture fidèle</em> (lire exactement le texte), soit <em>Impro</em> (rajouter / inventer des mots en faisant semblant de lire).</li>
+          <li>Le lecteur lit à voix haute. Personne d’autre ne voit l’écran.</li>
+          <li>Chacun vote : « Il lit vraiment » ou « Il invente ».</li>
+          <li>Révélation : points pour les bons détectives… et pour le lecteur s’il a bluffé sans se faire prendre.</li>
+        </ol>
+        <button class="btn btn-primary" data-go="setup">C’est compris — jouer</button>
+      </div>
+    </section>
+
+    <!-- Setup -->
+    <section class="screen" id="screen-setup" data-screen="setup">
+      <div class="panel">
+        <button class="back" data-go="home">← Retour</button>
+        <h2>Préparer la soirée</h2>
+        <p class="hint">Minimum 3 joueurs. Tournez l’écran vers le lecteur à chaque manche.</p>
+
+        <label class="field">
+          <span>Noms des joueurs</span>
+          <div class="player-add">
+            <input type="text" id="player-input" placeholder="Ex. Camille" maxlength="20" autocomplete="off" />
+            <button type="button" class="btn btn-secondary" id="add-player">Ajouter</button>
+          </div>
+        </label>
+        <ul class="player-list" id="player-list"></ul>
+
+        <label class="field">
+          <span>Nombre de manches</span>
+          <select id="round-count">
+            <option value="4">4</option>
+            <option value="6" selected>6</option>
+            <option value="8">8</option>
+            <option value="10">10</option>
+          </select>
+        </label>
+
+        <button class="btn btn-primary" id="start-game" disabled>Commencer</button>
+      </div>
+    </section>
+
+    <!-- Passation / regard ailleurs -->
+    <section class="screen" id="screen-pass" data-screen="pass">
+      <div class="panel center">
+        <p class="eyebrow" id="pass-round">Manche 1</p>
+        <h2 id="pass-title">Passez l’écran à…</h2>
+        <p class="big-name" id="pass-name">—</p>
+        <p class="hint">Les autres : regardez ailleurs jusqu’à ce que le lecteur dise « Prêt ».</p>
+        <button class="btn btn-primary" id="reveal-mission">Je suis le lecteur — voir ma mission</button>
+      </div>
+    </section>
+
+    <!-- Mission secrète -->
+    <section class="screen" id="screen-mission" data-screen="mission">
+      <div class="panel center mission-panel">
+        <p class="eyebrow">Mission secrète — pour tes yeux seuls</p>
+        <div class="mission-badge" id="mission-badge">—</div>
+        <p class="mission-help" id="mission-help"></p>
+        <button class="btn btn-primary" id="show-text">Afficher le texte</button>
+      </div>
+    </section>
+
+    <!-- Lecture -->
+    <section class="screen" id="screen-read" data-screen="read">
+      <div class="read-layout">
+        <div class="read-meta">
+          <span id="read-reader">Lecteur</span>
+          <span class="timer" id="timer">0:45</span>
+        </div>
+        <article class="script" id="script-text"></article>
+        <p class="whisper" id="read-whisper"></p>
+        <button class="btn btn-primary" id="finish-reading">J’ai fini de lire</button>
+      </div>
+    </section>
+
+    <!-- Vote -->
+    <section class="screen" id="screen-vote" data-screen="vote">
+      <div class="panel">
+        <p class="eyebrow" id="vote-round">Manche 1</p>
+        <h2>À vous de juger</h2>
+        <p class="hint"><span id="vote-reader-name"></span> a-t-il·elle lu le texte… ou inventé des mots ?</p>
+        <div class="vote-grid" id="vote-grid"></div>
+        <button class="btn btn-primary" id="submit-votes" disabled>Révéler la vérité</button>
+      </div>
+    </section>
+
+    <!-- Révélation -->
+    <section class="screen" id="screen-reveal" data-screen="reveal">
+      <div class="panel center">
+        <p class="eyebrow">Révélation</p>
+        <h2 id="reveal-title">—</h2>
+        <p class="reveal-detail" id="reveal-detail"></p>
+        <ul class="score-delta" id="score-delta"></ul>
+        <div class="scoreboard mini" id="scoreboard-mini"></div>
+        <button class="btn btn-primary" id="next-round">Manche suivante</button>
+      </div>
+    </section>
+
+    <!-- Fin -->
+    <section class="screen" id="screen-end" data-screen="end">
+      <div class="panel center">
+        <p class="brand small">Jeux de Mots</p>
+        <h2>Classement final</h2>
+        <ol class="final-scores" id="final-scores"></ol>
+        <div class="cta-row">
+          <button class="btn btn-primary" id="replay">Rejouer</button>
+          <button class="btn btn-ghost" data-go="home">Accueil</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
