@@ -1775,12 +1775,17 @@ function revealPriceRound() {
   $("#price-deltas").innerHTML = deltas
     .map(
       (d) =>
-        `<li class="${d.plus ? "plus" : ""}"><strong>${escapeHtml(
-          d.name
-        )}</strong> ${escapeHtml(d.text)}</li>`
+        `<li><span>${escapeHtml(d.name)}</span><span class="${
+          d.plus ? "plus" : ""
+        }">${escapeHtml(d.text)}</span></li>`
     )
     .join("");
-  renderScoreboard($("#price-scoreboard"));
+  $("#price-scoreboard").innerHTML = state.players
+    .map(
+      (p) =>
+        `<span class="chip">${escapeHtml(p)} · ${state.scores[p]}</span>`
+    )
+    .join("");
 }
 
 function startVote() {
