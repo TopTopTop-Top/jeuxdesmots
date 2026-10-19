@@ -15,7 +15,8 @@ Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fid
 
 1. Carte produit (sans le prix) + métadonnées magasin  
 2. Chaque joueur propose un prix en privé  
-3. Révélation + score : pile poil +5 · ≤10 % +3 · ≤25 % +1  
+3. Révélation + score exigeant : ±1 ct → 6 · ≤5 ct/2 % → 4 · ≤15 ct/5 % → 2 · ≤25 ct et ≤8 % → 1 · sinon **0** · **+2** au plus proche  
+
 
 Crédit obligatoire : Open Prices / Open Food Facts.
 

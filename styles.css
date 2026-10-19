@@ -584,6 +584,12 @@ select:focus {
   border-top: 1px solid rgba(232, 240, 236, 0.15);
 }
 
+.price-score-legend {
+  opacity: 0.75;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
 .price-turn {
   margin-top: 0.75rem;
 }

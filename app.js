@@ -1065,12 +1065,12 @@ async function startGame() {
     status.textContent =
       err?.message ||
       "Impossible de charger les données. Vérifie ta connexion, puis réessaie.";
-    btn.disabled = state.players.length < 3;
+    btn.disabled = state.players.length < 2;
     return;
   }
 
   status.hidden = true;
-  btn.disabled = state.players.length < 3;
+  btn.disabled = state.players.length < 2;
   nextRound();
 }
 
@@ -1814,13 +1814,46 @@ function submitPriceGuess() {
   }
 }
 
+/**
+ * Score prix (exigeant) :
+ * - tranche précision (€ et %)
+ * - au-delà → 0 (pas de points automatiques)
+ * - +2 au(x) plus proche(s) de la manche
+ */
 function scorePriceGuess(guess, real) {
-  const diff = Math.abs(guess - real);
-  if (diff < 0.005) return { pts: 5, label: "pile poil" };
+  const diff = Math.abs(Number(guess) - Number(real));
   const pct = real > 0 ? diff / real : 1;
-  if (pct <= 0.1) return { pts: 3, label: "≤ 10 %" };
-  if (pct <= 0.25) return { pts: 1, label: "≤ 25 %" };
-  return { pts: 0, label: "trop loin" };
+  const euro = (n) => n.toFixed(2).replace(".", ",");
+
+  if (diff <= 0.01) {
+    return { pts: 6, label: `exact (±1 ct, écart ${euro(diff)} €)`, diff };
+  }
+  if (diff <= 0.05 || pct <= 0.02) {
+    return {
+      pts: 4,
+      label: `très proche (≤5 ct ou ≤2 %, écart ${euro(diff)} €)`,
+      diff,
+    };
+  }
+  if (diff <= 0.15 || pct <= 0.05) {
+    return {
+      pts: 2,
+      label: `proche (≤15 ct ou ≤5 %, écart ${euro(diff)} €)`,
+      diff,
+    };
+  }
+  if (diff <= 0.25 && pct <= 0.08) {
+    return {
+      pts: 1,
+      label: `zone (≤25 ct et ≤8 %, écart ${euro(diff)} €)`,
+      diff,
+    };
+  }
+  return {
+    pts: 0,
+    label: `raté (écart ${euro(diff)} € / ${(pct * 100).toFixed(0)} %)`,
+    diff,
+  };
 }
 
 function revealPriceRound() {
@@ -1833,30 +1866,49 @@ function revealPriceRound() {
     entry.discounted ? " (promo)" : ""
   }`;
 
-  const deltas = [];
-  state.players.forEach((name) => {
+  const results = state.players.map((name) => {
     const guess = state.priceGuesses[name];
-    const { pts, label } = scorePriceGuess(guess, real);
-    state.scores[name] += pts;
-    const g = Number(guess).toFixed(2).replace(".", ",");
+    return { name, guess, ...scorePriceGuess(guess, real) };
+  });
+
+  const bestDiff = Math.min(...results.map((r) => r.diff));
+  const winners = results.filter(
+    (r) => Math.abs(r.diff - bestDiff) < 0.0005
+  );
+
+  const deltas = [];
+  results.forEach((r) => {
+    let pts = r.pts;
+    const bits = [r.label];
+    const isClosest = winners.some((w) => w.name === r.name);
+    if (isClosest) {
+      pts += 2;
+      bits.push(
+        winners.length > 1 ? "+2 ex æquo plus proche" : "+2 plus proche"
+      );
+    }
+    state.scores[r.name] += pts;
+    const g = Number(r.guess).toFixed(2).replace(".", ",");
     deltas.push({
-      name,
+      name: r.name,
       text:
         pts > 0
-          ? `+${pts} — tu as dit ${g} € (${label})`
-          : `0 — tu as dit ${g} € (${label})`,
+          ? `+${pts} — ${g} € · ${bits.join(" · ")}`
+          : `0 — ${g} € · ${bits.join(" · ")}`,
       plus: pts > 0,
     });
   });
 
-  $("#price-deltas").innerHTML = deltas
-    .map(
-      (d) =>
-        `<li><span>${escapeHtml(d.name)}</span><span class="${
-          d.plus ? "plus" : ""
-        }">${escapeHtml(d.text)}</span></li>`
-    )
-    .join("");
+  $("#price-deltas").innerHTML =
+    `<li class="price-score-legend"><span>Rappel</span><span>±1 ct → 6 · ≤5 ct/2 % → 4 · ≤15 ct/5 % → 2 · ≤25 ct+8 % → 1 · sinon 0 · +2 au plus proche</span></li>` +
+    deltas
+      .map(
+        (d) =>
+          `<li><span>${escapeHtml(d.name)}</span><span class="${
+            d.plus ? "plus" : ""
+          }">${escapeHtml(d.text)}</span></li>`
+      )
+      .join("");
   $("#price-scoreboard").innerHTML = state.players
     .map(
       (p) =>
