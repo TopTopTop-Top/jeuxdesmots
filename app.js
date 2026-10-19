@@ -99,11 +99,14 @@ const state = {
   players: [],
   scores: {},
   voiceMode: "human", // 'human' | 'assist'
-  textSource: "wikipedia", // 'wikipedia' | 'actu' | 'citations'
+  textSource: "wikipedia", // 'wikipedia' | 'actu' | 'citations' | 'prix'
   prepSeconds: 8,
   stakeAccuse: false,
   turnVoters: [],
   turnIndex: 0,
+  pricePool: [],
+  priceEntry: null,
+  priceGuesses: {},
   textPool: [],
   textMeta: [], // { source, title }
   totalRounds: 6,
@@ -789,7 +792,116 @@ async function fetchInfinitePool(sourceTag, need) {
   return collected.slice(0, need);
 }
 
+function formatDateFR(isoDate) {
+  if (!isoDate) return "—";
+  const d = new Date(
+    /T/.test(isoDate) ? isoDate : `${isoDate}T12:00:00`
+  );
+  if (Number.isNaN(d.getTime())) return String(isoDate);
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatDateTimeFR(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function isFranceLocation(loc) {
+  if (!loc) return false;
+  const cc = String(loc.osm_address_country_code || "").toLowerCase();
+  if (cc === "fr") return true;
+  return /france/i.test(
+    `${loc.osm_address_country || ""} ${loc.osm_display_name || ""}`
+  );
+}
+
+function normalizeOpenPrice(item) {
+  const product = item.product || {};
+  const loc = item.location || {};
+  const proof = item.proof || {};
+  const name =
+    product.product_name ||
+    item.product_name ||
+    product.brands ||
+    "Produit inconnu";
+  const qty =
+    product.quantity ||
+    (product.product_quantity
+      ? `${product.product_quantity} ${product.product_quantity_unit || ""}`.trim()
+      : "");
+  const enseigne =
+    loc.osm_brand || loc.osm_name || "Enseigne inconnue";
+  return {
+    source: "prix",
+    price: Number(item.price),
+    currency: item.currency || "EUR",
+    name,
+    quantity: qty,
+    image: product.image_url || "",
+    enseigne,
+    city: loc.osm_address_city || "",
+    postcode: loc.osm_address_postcode || "",
+    country: loc.osm_address_country || "",
+    countryCode: loc.osm_address_country_code || "",
+    address: loc.osm_display_name || "",
+    date: item.date || proof.date || "",
+    created: item.created || proof.created || "",
+    discounted: Boolean(item.price_is_discounted),
+  };
+}
+
+/** Prix FR récents via Open Prices (Open Food Facts). */
+async function fetchOpenPricesPool(need) {
+  const collected = [];
+  const seen = new Set();
+  let page = 1;
+  while (collected.length < need && page <= 6) {
+    const url =
+      `https://prices.openfoodfacts.org/api/v1/prices` +
+      `?currency=EUR&location_osm_address_country_code=fr` +
+      `&order_by=-date&size=40&page=${page}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("open-prices");
+    const data = await res.json();
+    const items = data.items || [];
+    if (!items.length) break;
+    for (const raw of items) {
+      if (!isFranceLocation(raw.location)) continue;
+      const entry = normalizeOpenPrice(raw);
+      if (!entry.name || !(entry.price > 0)) continue;
+      if (!entry.enseigne || entry.enseigne === "Enseigne inconnue") continue;
+      const key = `${entry.name}|${entry.enseigne}|${entry.price}|${entry.date}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      collected.push(entry);
+      if (collected.length >= need) break;
+    }
+    page += 1;
+  }
+  if (!collected.length) {
+    throw new Error("Aucun prix FR trouvé sur Open Prices.");
+  }
+  return shuffle(collected).slice(0, need);
+}
+
 async function buildTextPool(source, n) {
+  if (source === "prix") {
+    return fetchOpenPricesPool(Math.max(n, n + 2));
+  }
+
   if (source === "citations") {
     const pool = shuffle(QUOTES).map((q) => ({
       text: q.text,
@@ -840,11 +952,16 @@ function sourceLabel(src) {
   if (src === "wikipedia") return "Wikipédia";
   if (src === "actu") return "Actu Wikinews";
   if (src === "citations") return "Citation";
+  if (src === "prix") return "Prix Open Prices";
   return src;
 }
 
 function isCitationsMode() {
   return state.textSource === "citations";
+}
+
+function isPriceMode() {
+  return state.textSource === "prix";
 }
 
 /** Vérité pour le vote en mode citations. */
@@ -875,17 +992,21 @@ async function startGame() {
   btn.disabled = true;
   status.hidden = false;
   status.textContent =
-    state.textSource === "citations"
-      ? "Tirage des citations…"
-      : state.textSource === "actu"
-        ? "Tirage d’articles Wikinews (actu réelle)…"
-        : "Tirage de textes Wikipédia…";
+    state.textSource === "prix"
+      ? "Tirage de prix Open Prices (FR)…"
+      : state.textSource === "citations"
+        ? "Tirage des citations…"
+        : state.textSource === "actu"
+          ? "Tirage d’articles Wikinews (actu réelle)…"
+          : "Tirage de textes Wikipédia…";
 
   try {
     state.textPool = await buildTextPool(state.textSource, state.totalRounds);
+    state.pricePool = isPriceMode() ? state.textPool : [];
   } catch (err) {
     status.textContent =
-      "Impossible de charger les textes. Vérifie ta connexion, puis réessaie.";
+      err?.message ||
+      "Impossible de charger les données. Vérifie ta connexion, puis réessaie.";
     btn.disabled = state.players.length < 3;
     return;
   }
@@ -901,6 +1022,11 @@ function nextRound() {
   state.round += 1;
   if (state.round > state.totalRounds) {
     endGame();
+    return;
+  }
+
+  if (isPriceMode()) {
+    startPriceRound();
     return;
   }
 
@@ -1482,6 +1608,181 @@ function voteLabel(v) {
 }
 
 /** Votes / chasse : un joueur à la fois (téléphone passé, réponses privées). */
+function startPriceRound() {
+  const entry = state.pricePool[(state.round - 1) % state.pricePool.length];
+  if (!entry) {
+    endGame();
+    return;
+  }
+  state.priceEntry = entry;
+  state.priceGuesses = {};
+  state.turnVoters = [...state.players];
+  state.turnIndex = 0;
+
+  $("#price-round").textContent = `Manche ${state.round} / ${state.totalRounds}`;
+  $("#price-reveal").hidden = true;
+  $("#price-submit").hidden = true;
+  $("#price-card").hidden = false;
+
+  const img = $("#price-image");
+  if (entry.image) {
+    img.hidden = false;
+    img.src = entry.image;
+    img.alt = entry.name;
+  } else {
+    img.hidden = true;
+    img.removeAttribute("src");
+  }
+  $("#price-name").textContent = entry.name;
+  $("#price-qty").textContent = entry.quantity
+    ? `Quantité : ${entry.quantity}`
+    : "";
+
+  const meta = [];
+  meta.push(`<li><strong>Enseigne</strong> ${escapeHtml(entry.enseigne)}</li>`);
+  if (entry.city || entry.postcode) {
+    meta.push(
+      `<li><strong>Ville</strong> ${escapeHtml(
+        [entry.postcode, entry.city].filter(Boolean).join(" ")
+      )}</li>`
+    );
+  }
+  if (entry.country || entry.countryCode) {
+    meta.push(
+      `<li><strong>Pays</strong> ${escapeHtml(
+        entry.country || entry.countryCode
+      )}${
+        entry.countryCode ? ` (${escapeHtml(entry.countryCode)})` : ""
+      }</li>`
+    );
+  }
+  if (entry.address) {
+    meta.push(
+      `<li><strong>Adresse / lieu</strong> ${escapeHtml(entry.address)}</li>`
+    );
+  }
+  if (entry.date) {
+    meta.push(
+      `<li><strong>Date du relevé</strong> ${escapeHtml(
+        formatDateFR(entry.date)
+      )}</li>`
+    );
+  }
+  if (entry.created) {
+    meta.push(
+      `<li><strong>Date & heure (ajout Open Prices)</strong> ${escapeHtml(
+        formatDateTimeFR(entry.created)
+      )}</li>`
+    );
+  }
+  if (entry.discounted) {
+    meta.push(`<li><strong>Promo</strong> prix soldé / remisé</li>`);
+  }
+  $("#price-meta").innerHTML = meta.join("");
+
+  show("price");
+  renderPricePass();
+}
+
+function renderPricePass() {
+  const name = state.turnVoters[state.turnIndex];
+  const i = state.turnIndex + 1;
+  const n = state.turnVoters.length;
+  $("#price-submit").hidden = true;
+  $("#price-turn").innerHTML = `
+    <div class="pass-turn">
+      <p class="eyebrow">Prix privé ${i} / ${n}</p>
+      <h3>Passe le téléphone à</h3>
+      <p class="big-name">${escapeHtml(name)}</p>
+      <p class="hint warn-hint">Les autres : ne regardez pas. Personne ne voit les prix proposés avant la révélation.</p>
+      <button type="button" class="btn btn-primary" id="reveal-price-turn">Je suis ${escapeHtml(name)} — proposer un prix</button>
+    </div>`;
+  $("#reveal-price-turn").addEventListener("click", showPriceGuessForm);
+}
+
+function showPriceGuessForm() {
+  const name = state.turnVoters[state.turnIndex];
+  const last = state.turnIndex >= state.turnVoters.length - 1;
+  $("#price-turn").innerHTML = `
+    <div class="vote-card solo-turn">
+      <strong>À toi, ${escapeHtml(name)}</strong>
+      <p class="hint">Combien coûtait ce produit dans ce magasin ? (en €)</p>
+      <label class="field">
+        <span>Ton prix (€)</span>
+        <input type="number" id="price-guess-input" min="0" step="0.01" inputmode="decimal" placeholder="ex. 2,49" />
+      </label>
+    </div>`;
+  const btn = $("#price-submit");
+  btn.hidden = false;
+  btn.textContent = last
+    ? "Valider mon prix → révélation"
+    : "Valider mon prix → joueur suivant";
+  $("#price-guess-input")?.focus();
+}
+
+function submitPriceGuess() {
+  const raw = ($("#price-guess-input")?.value || "").replace(",", ".");
+  const guess = Number(raw);
+  if (!(guess >= 0) || Number.isNaN(guess)) {
+    alert("Entre un prix valide (ex. 1.99).");
+    return;
+  }
+  const name = state.turnVoters[state.turnIndex];
+  state.priceGuesses[name] = guess;
+  state.turnIndex += 1;
+  if (state.turnIndex >= state.turnVoters.length) {
+    revealPriceRound();
+  } else {
+    renderPricePass();
+  }
+}
+
+function scorePriceGuess(guess, real) {
+  const diff = Math.abs(guess - real);
+  if (diff < 0.005) return { pts: 5, label: "pile poil" };
+  const pct = real > 0 ? diff / real : 1;
+  if (pct <= 0.1) return { pts: 3, label: "≤ 10 %" };
+  if (pct <= 0.25) return { pts: 1, label: "≤ 25 %" };
+  return { pts: 0, label: "trop loin" };
+}
+
+function revealPriceRound() {
+  const entry = state.priceEntry;
+  const real = entry.price;
+  $("#price-submit").hidden = true;
+  $("#price-turn").innerHTML = "";
+  $("#price-reveal").hidden = false;
+  $("#price-real").textContent = `${real.toFixed(2).replace(".", ",")} €${
+    entry.discounted ? " (promo)" : ""
+  }`;
+
+  const deltas = [];
+  state.players.forEach((name) => {
+    const guess = state.priceGuesses[name];
+    const { pts, label } = scorePriceGuess(guess, real);
+    state.scores[name] += pts;
+    const g = Number(guess).toFixed(2).replace(".", ",");
+    deltas.push({
+      name,
+      text:
+        pts > 0
+          ? `+${pts} — tu as dit ${g} € (${label})`
+          : `0 — tu as dit ${g} € (${label})`,
+      plus: pts > 0,
+    });
+  });
+
+  $("#price-deltas").innerHTML = deltas
+    .map(
+      (d) =>
+        `<li class="${d.plus ? "plus" : ""}"><strong>${escapeHtml(
+          d.name
+        )}</strong> ${escapeHtml(d.text)}</li>`
+    )
+    .join("");
+  renderScoreboard($("#price-scoreboard"));
+}
+
 function startVote() {
   state.declaredSpoken = ($("#transcript-edit").value || "").trim();
   state.transcript = dedupeTranscript(state.declaredSpoken);
@@ -2078,6 +2379,8 @@ function wireNav() {
   $("#vote-grid").addEventListener("change", checkVotesReady);
   $("#submit-votes").addEventListener("click", submitCurrentVote);
   $("#submit-hunt").addEventListener("click", submitCurrentHunt);
+  $("#price-submit").addEventListener("click", submitPriceGuess);
+  $("#price-next").addEventListener("click", nextRound);
   $("#stt-suggestions").addEventListener("click", (e) => {
     const chip = e.target.closest("[data-word]");
     if (!chip) return;

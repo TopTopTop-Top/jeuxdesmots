@@ -9,6 +9,15 @@ Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fid
 - **Wikipédia** — résumés aléatoires FR (API MediaWiki)
 - **Actu** — vrais articles **Wikinews** récemment publiés (pas de secours Wikipédia)
 - **Citations** — citations officielles entières « … » + auteur, ou invention
+- **Prix** — deviner le prix d’un produit (Open Prices / Open Food Facts, ODbL) : photo, quantité, enseigne, lieu, pays, date & heure du relevé
+
+## Mode Prix
+
+1. Carte produit (sans le prix) + métadonnées magasin  
+2. Chaque joueur propose un prix en privé  
+3. Révélation + score : pile poil +5 · ≤10 % +3 · ≤25 % +1  
+
+Crédit obligatoire : Open Prices / Open Food Facts.
 
 ## Mode Citations
 

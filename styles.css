@@ -500,6 +500,71 @@ select:focus {
   line-height: 1.25;
 }
 
+.price-card {
+  margin: 1rem 0 1.25rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgba(255, 250, 235, 0.96), rgba(220, 230, 222, 0.9));
+  color: var(--ink);
+}
+
+.price-image {
+  display: block;
+  width: min(100%, 220px);
+  max-height: 220px;
+  object-fit: contain;
+  margin: 0 auto 0.85rem;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.price-card h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.price-qty {
+  margin: 0 0 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  color: rgba(20, 28, 24, 0.75);
+}
+
+.price-meta {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+}
+
+.price-meta li {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.price-real {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  font-weight: 800;
+  color: var(--amber-hot);
+  margin: 0.25rem 0 1rem;
+}
+
+.price-reveal {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(232, 240, 236, 0.15);
+}
+
+.price-turn {
+  margin-top: 0.75rem;
+}
+
 .pass-turn {
   text-align: center;
   padding: 1.25rem 0.5rem 0.5rem;

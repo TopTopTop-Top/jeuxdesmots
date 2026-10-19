@@ -21,7 +21,7 @@
         <p class="brand">Jeux de Mots</p>
         <h1 class="headline">Lit-il vraiment… ou invente-t-il ?</h1>
         <p class="lede">
-          Wikipédia, actu ou citations — fidèle, un mot changé, ou bluff total ?
+          Mots, citations… ou devine le prix en rayon (enseigne, lieu, date).
         </p>
         <div class="cta-row">
           <button class="btn btn-primary" data-go="setup">Lancer une partie</button>
@@ -44,6 +44,7 @@
         <ol class="rules">
           <li><strong>Un lecteur</strong> reçoit une mission secrète : lecture fidèle, ou impro avec un <em>défi</em> (remplacer, lettre, négation, charge de mots…).</li>
           <li>En mode <em>Citations</em> : citation officielle entière « … » + auteur, ou invention. Soit <em>exacte</em>, soit <em>1 seul mot</em> changé, soit <em>inventée</em> (prénom + nom fictifs).</li>
+          <li>En mode <em>Prix</em> : photo, quantité, enseigne, ville, pays, date/heure du relevé — tout le monde propose un prix, puis révélation + points (données Open Prices).</li>
           <li><strong>Temps mort</strong> (option) : countdown commun avant de pouvoir lire — plus personne ne se doute juste parce que tu réfléchis.</li>
           <li><strong>Anti-suspicion</strong> : hésiter ≠ coupable. Option <em>mise</em> : accuser engage 1 pt (+3 si vrai, −1 si faux). En citations, nommer l’écart reste requis.</li>
           <li>Option <em>avec micro</em> : aide à la réécoute seulement — la STT ne juge pas.</li>
@@ -90,6 +91,13 @@
             <span>
               <strong>Citations</strong>
               Exacte · 1 mot changé · ou inventée (maxime + auteur fictif).
+            </span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="text-source" value="prix" />
+            <span>
+              <strong>Prix (courses)</strong>
+              Devinez le prix : photo, quantité, enseigne, lieu, pays, date/heure du relevé (Open Prices).
             </span>
           </label>
         </fieldset>
@@ -146,6 +154,32 @@
 
         <p class="hint" id="load-status" hidden></p>
         <button class="btn btn-primary" id="start-game" disabled>Commencer</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-price" data-screen="price">
+      <div class="panel">
+        <p class="eyebrow" id="price-round">Manche 1</p>
+        <h2>Devinez le prix</h2>
+        <p class="hint">Chacun propose un prix. Données <a href="https://prices.openfoodfacts.org/" target="_blank" rel="noopener">Open Prices / Open Food Facts</a> (ODbL).</p>
+
+        <article class="price-card" id="price-card">
+          <img id="price-image" class="price-image" alt="" hidden />
+          <h3 id="price-name">—</h3>
+          <p class="price-qty" id="price-qty"></p>
+          <ul class="price-meta" id="price-meta"></ul>
+        </article>
+
+        <div id="price-turn" class="price-turn"></div>
+        <button type="button" class="btn btn-primary" id="price-submit" hidden>Valider mon prix</button>
+
+        <div id="price-reveal" class="price-reveal" hidden>
+          <p class="live-label">Prix réel</p>
+          <p class="price-real" id="price-real">—</p>
+          <ul class="score-delta" id="price-deltas"></ul>
+          <div class="scoreboard mini" id="price-scoreboard"></div>
+          <button type="button" class="btn btn-primary" id="price-next">Manche suivante</button>
+        </div>
       </div>
     </section>
 
