@@ -1,15 +1,27 @@
 # Jeux de Mots
 
-Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fidèle** ou **impro** (mots rajoutés).
+Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fidèle** ou **impro**.
 
 **Les points sont validés par le groupe.** Le micro (optionnel) sert seulement à réécouter — la STT ne décide pas du score.
 
 ## Sources de textes
 
-- **Wikipédia (conseillé)** — générateur illimité (API MediaWiki FR)
-- **Actu (Wikinews)** — articles d’actualité via la même API
-- **Mix** — Wikipédia + Wikinews
-- **Citations** — citation officielle **entière entre guillemets « »** + auteur, ou aucune citation (inventer). Missions : exacte / modifier un peu ou beaucoup / inventer. Votes à 3 options ; points pour bluff et démasquage.
+- **Wikipédia** — résumés aléatoires FR (API MediaWiki)
+- **Actu** — vrais articles **Wikinews** récemment publiés (pas de secours Wikipédia)
+- **Citations** — citations officielles entières « … » + auteur, ou invention
+
+## Mode Citations
+
+- **Exacte** : citation officielle **entière** entre guillemets
+- **1 mot changé** : un seul mot remplacé
+- **Inventée** : maxime de zéro + auteur fictif (prénom + nom)
+
+Votes à 3 options. Anti-suspicion :
+
+- hésiter ne prouve rien
+- fausse accusation (exacte prise pour modifiée/inventée) → **-1**
+- vote « 1 mot / inventée » sans **nommer** l’écart → **0** sur le vote
+- exacte crédible → bonus fort si les autres accusent à tort
 
 ## Modes micro
 
@@ -20,10 +32,10 @@ Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fid
 
 1. Mission secrète du lecteur  
 2. Lecture (± enregistrement)  
-3. **Trace écrite** : le lecteur édite l’original pour coller à ce qu’il a vraiment dit  
-4. Votes des autres  
-5. Chasse aux mots ajoutés  
-6. **Arbitrage** : comparer origine ↔ version déclarée, valider la liste, score  
+3. Trace écrite (ce qui a vraiment été dit)  
+4. Votes  
+5. Chasse aux mots / écarts  
+6. Arbitrage + score  
 
 ## Lancer
 

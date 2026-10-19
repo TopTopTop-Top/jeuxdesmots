@@ -99,7 +99,7 @@ const state = {
   players: [],
   scores: {},
   voiceMode: "human", // 'human' | 'assist'
-  textSource: "wikipedia", // 'wikipedia' | 'actu' | 'mix' | 'citations'
+  textSource: "wikipedia", // 'wikipedia' | 'actu' | 'citations'
   textPool: [],
   textMeta: [], // { source, title }
   totalRounds: 6,
@@ -290,39 +290,26 @@ function stripGuillemets(text) {
 }
 
 /**
- * Impro citations :
- * - modifier un peu / beaucoup (citation réelle affichée)
+ * Impro citations (2 cas seulement) :
+ * - changer EXACTEMENT 1 mot (citation réelle affichée)
  * - inventer (aucune citation affichée)
  * Exacte = mission fidèle (citation entière obligatoire).
  */
 function makeQuoteChallenge(text) {
   const words = textWords(stripGuillemets(text));
-  const roll = Math.random();
   const idx = words.length ? pickReplaceableIndex(words) : 0;
   const word = (words[idx] || "mot").replace(/[^\p{L}\p{N}'’-]/gu, "");
 
-  if (roll < 0.34) {
+  if (Math.random() < 0.55) {
     return {
       type: "quote-tweak",
-      title: "Modifier un peu",
-      detail: `La citation réelle est affichée en entier. Change seulement 1 à 3 mots (ex. autour de « ${word} »). À l’écrit, garde des guillemets.`,
+      title: "Changer 1 seul mot",
+      detail: `Remplace uniquement le mot « ${word} » — rien d’autre. Citation entière, guillemets conservés.`,
       target: {
-        change: "tweak",
+        change: "one-word",
         original: word.toLowerCase(),
-        allowPhrase: true,
+        allowPhrase: false,
       },
-      bonusOk: 4,
-      bonusStealth: 5,
-    };
-  }
-
-  if (roll < 0.67) {
-    return {
-      type: "quote-rewrite",
-      title: "Modifier beaucoup",
-      detail:
-        "La citation réelle est affichée. Réécris-en presque tout (idée vague OK) pour que ça sonne encore comme une citation entre guillemets.",
-      target: { change: "rewrite", allowPhrase: true },
       bonusOk: 4,
       bonusStealth: 5,
     };
@@ -695,7 +682,7 @@ function isUsableExtract(title, extract) {
 
 /**
  * Tire plein de textes d’un coup via l’API MediaWiki (CORS OK, pas de proxy).
- * base: wikipedia ou wikinews.
+ * Wikipédia : pages aléatoires.
  */
 async function fetchMediaWikiBatch(baseHost, sourceTag, limit = 10) {
   const url =
@@ -717,18 +704,63 @@ async function fetchMediaWikiBatch(baseHost, sourceTag, limit = 10) {
     .filter(Boolean);
 }
 
+/**
+ * Actu = vrais articles Wikinews publiés (récents), jamais du Wikipédia.
+ * Catégorie « Article publié », triés par date.
+ */
+async function fetchWikinewsActu(need) {
+  const collected = [];
+  let cmcontinue = "";
+  let rounds = 0;
+
+  while (collected.length < need && rounds < 8) {
+    rounds += 1;
+    let url =
+      `https://fr.wikinews.org/w/api.php?action=query&format=json&origin=*` +
+      `&generator=categorymembers` +
+      `&gcmtitle=${encodeURIComponent("Catégorie:Article publié")}` +
+      `&gcmnamespace=0&gcmsort=timestamp&gcmdir=desc` +
+      `&gcmlimit=20&prop=extracts&exintro=1&explaintext=1&exchars=520`;
+    if (cmcontinue) {
+      url += `&gcmcontinue=${encodeURIComponent(cmcontinue)}`;
+    }
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("wikinews");
+    const data = await res.json();
+    const pages = Object.values(data.query?.pages || {});
+    for (const p of pages) {
+      const title = p.title || "Actu";
+      // Titres type "Date : Titre" → garder un vrai air d’actu
+      const text = clipText(p.extract || "");
+      if (!isUsableExtract(title, text)) continue;
+      if (collected.some((c) => c.text === text)) continue;
+      collected.push({
+        text,
+        title,
+        source: "actu",
+      });
+      if (collected.length >= need) break;
+    }
+    cmcontinue = data.continue?.gcmcontinue || "";
+    if (!cmcontinue) break;
+  }
+
+  return collected.slice(0, need);
+}
+
 async function fetchInfinitePool(sourceTag, need) {
-  const host =
-    sourceTag === "actu" ? "fr.wikinews.org" : "fr.wikipedia.org";
-  // Wikinews a moins de pages → on complète avec Wikipédia étiqueté actu si besoin
+  if (sourceTag === "actu") {
+    return fetchWikinewsActu(need);
+  }
+
   const collected = [];
   let rounds = 0;
   while (collected.length < need && rounds < 6) {
     rounds += 1;
     try {
       const batch = await fetchMediaWikiBatch(
-        host,
-        sourceTag,
+        "fr.wikipedia.org",
+        "wikipedia",
         Math.max(6, need - collected.length + 2)
       );
       for (const e of batch) {
@@ -738,29 +770,6 @@ async function fetchInfinitePool(sourceTag, need) {
       break;
     }
   }
-
-  // Secours actu : Wikipédia (mêmes APIs fiables) si Wikinews trop pauvre
-  if (sourceTag === "actu" && collected.length < need) {
-    try {
-      const extra = await fetchMediaWikiBatch(
-        "fr.wikipedia.org",
-        "actu",
-        need - collected.length + 4
-      );
-      for (const e of extra) {
-        if (!collected.some((c) => c.text === e.text)) {
-          collected.push({
-            ...e,
-            title: e.title,
-            source: "actu",
-          });
-        }
-      }
-    } catch (_) {
-      /* ignore */
-    }
-  }
-
   return collected.slice(0, need);
 }
 
@@ -788,24 +797,19 @@ async function buildTextPool(source, n) {
 
   if (source === "actu") {
     pool.push(...(await fetchInfinitePool("actu", n + 2)));
-  } else if (source === "mix") {
-    const nWiki = Math.ceil(n * 0.55);
-    const nActu = n - nWiki + 2;
-    const [wiki, actu] = await Promise.all([
-      fetchInfinitePool("wikipedia", nWiki + 2),
-      fetchInfinitePool("actu", nActu),
-    ]);
-    pool.push(...wiki.slice(0, nWiki), ...actu.slice(0, n - nWiki));
+    if (!pool.length) {
+      throw new Error(
+        "Aucune actu Wikinews chargée — vérifie la connexion (pas de secours Wikipédia)."
+      );
+    }
   } else {
     pool.push(...(await fetchInfinitePool("wikipedia", n + 2)));
-  }
-
-  // Si pas assez : encore du Wikipédia
-  if (pool.length < n) {
-    const extra = await fetchInfinitePool("wikipedia", n - pool.length + 3);
-    for (const e of extra) {
-      if (!pool.some((p) => p.text === e.text)) pool.push(e);
-      if (pool.length >= n) break;
+    if (pool.length < n) {
+      const extra = await fetchInfinitePool("wikipedia", n - pool.length + 3);
+      for (const e of extra) {
+        if (!pool.some((p) => p.text === e.text)) pool.push(e);
+        if (pool.length >= n) break;
+      }
     }
   }
 
@@ -818,8 +822,7 @@ async function buildTextPool(source, n) {
 
 function sourceLabel(src) {
   if (src === "wikipedia") return "Wikipédia";
-  if (src === "actu") return "Actu";
-  if (src === "mix") return "Mix";
+  if (src === "actu") return "Actu Wikinews";
   if (src === "citations") return "Citation";
   return src;
 }
@@ -832,7 +835,7 @@ function isCitationsMode() {
 function citationTruth() {
   if (state.mission === "fidele") return "fidele";
   if (state.challenge?.type === "quote-invent") return "invent";
-  return "modify"; // tweak ou rewrite
+  return "modify"; // 1 mot changé
 }
 
 function isInventingQuote() {
@@ -853,9 +856,12 @@ async function startGame() {
 
   btn.disabled = true;
   status.hidden = false;
-  status.textContent = isCitationsMode()
-    ? "Tirage des citations…"
-    : "Tirage de textes (Wikipédia / Wikinews)…";
+  status.textContent =
+    state.textSource === "citations"
+      ? "Tirage des citations…"
+      : state.textSource === "actu"
+        ? "Tirage d’articles Wikinews (actu réelle)…"
+        : "Tirage de textes Wikipédia…";
 
   try {
     state.textPool = await buildTextPool(state.textSource, state.totalRounds);
@@ -1431,7 +1437,7 @@ function startVote() {
         <strong>${escapeHtml(name)}</strong>
         <div class="vote-choices">
           <label><input type="radio" name="vote-${i}" value="fidele" /> Exacte (entière)</label>
-          <label><input type="radio" name="vote-${i}" value="modify" /> Modifiée</label>
+          <label><input type="radio" name="vote-${i}" value="modify" /> 1 mot changé</label>
           <label><input type="radio" name="vote-${i}" value="invent" /> Inventée</label>
         </div>
       </div>`;
@@ -1485,7 +1491,7 @@ function startHunt() {
       return v === "impro" ? "invente" : "lit vraiment";
     }
     if (v === "fidele") return "exacte";
-    if (v === "modify") return "modifiée";
+    if (v === "modify") return "1 mot changé";
     if (v === "invent") return "inventée";
     return v;
   };
@@ -1645,12 +1651,9 @@ function startValidate() {
       $("#challenge-ok-label").textContent =
         "Défi OK : une info du texte a bien été inversée / niée (le contraire a été dit)";
     } else if (ch.type === "quote-tweak") {
+      const w = ch.target?.original || "?";
       $("#challenge-ok-label").textContent =
-        "Défi OK : quelques mots ont bien été modifiés (citation encore reconnaissable)";
-      $("#challenge-ok").checked = seed.length > 0;
-    } else if (ch.type === "quote-rewrite") {
-      $("#challenge-ok-label").textContent =
-        "Défi OK : citation largement modifiée (presque tout changé)";
+        `Défi OK : seul le mot « ${w} » a été changé (rien d’autre)`;
       $("#challenge-ok").checked = seed.length > 0;
     } else if (ch.type === "quote-invent") {
       $("#challenge-ok-label").textContent =
@@ -1695,12 +1698,34 @@ function confirmValidateAndScore() {
   const truth = isCitationsMode() ? citationTruth() : state.mission;
 
   // Pass 1 : votes + hits détectives
+  // Anti-suspicion citations :
+  // - accuser à tort (exacte → « modifiée/inventée ») = -1
+  // - vote « modifiée/inventée » juste sans nommer l’écart = 0 (il faut justifier)
   const voterResults = voters.map((name) => {
     const voteOk = state.votes[name] === truth;
     let pts = 0;
     const bits = [];
+    const guessText = (state.guesses[name] || "").trim();
 
-    if (voteOk) {
+    if (isCitationsMode()) {
+      if (voteOk) {
+        const needsProof = truth === "modify" || truth === "invent";
+        if (needsProof && !guessText) {
+          bits.push("vote juste mais sans nommer l’écart → 0");
+        } else {
+          pts += 2;
+          bits.push("+2 vote juste");
+        }
+      } else {
+        fooled += 1;
+        if (truth === "fidele" && state.votes[name] !== "fidele") {
+          pts -= 1;
+          bits.push("-1 fausse accusation");
+        } else {
+          bits.push("vote faux");
+        }
+      }
+    } else if (voteOk) {
       pts += 2;
       bits.push("+2 vote juste");
     } else {
@@ -1710,10 +1735,7 @@ function confirmValidateAndScore() {
 
     let hits = [];
     if (state.mission === "impro" && validated.length) {
-      const res = guessHitsAgainstValidated(
-        state.guesses[name],
-        validated
-      );
+      const res = guessHitsAgainstValidated(guessText, validated);
       hits = res.hits;
       res.caughtNormalized.forEach((c) => {
         caughtNorm.add(c);
@@ -1723,7 +1745,7 @@ function confirmValidateAndScore() {
         const bonus = hits.length * 3;
         pts += bonus;
         bits.push(`+${bonus} invention(s) trouvée(s)`);
-      } else if (state.guesses[name].trim()) {
+      } else if (guessText) {
         bits.push("piste ratée");
       }
     }
@@ -1799,12 +1821,16 @@ function confirmValidateAndScore() {
       });
     }
   } else {
-    const bonus = fooled * 2;
+    // Exacte crédible : bonus plus fort en citations (pénalise les accusations gratuites)
+    const perFooled = isCitationsMode() ? 3 : 2;
+    const bonus = fooled * perFooled;
     if (bonus > 0) {
       state.scores[reader] += bonus;
       deltas.push({
         name: reader,
-        text: `+${bonus} — lecture crédible (${fooled} ont cru à une impro)`,
+        text: isCitationsMode()
+          ? `+${bonus} — exacte crédible (${fooled} fausse(s) accusation(s) ×${perFooled})`
+          : `+${bonus} — lecture crédible (${fooled} ont cru à une impro)`,
         plus: true,
       });
     } else {
@@ -1825,7 +1851,7 @@ function confirmValidateAndScore() {
     const t = citationTruth();
     if (t === "fidele") return `${reader} : citation exacte (entière)`;
     if (t === "invent") return `${reader} : citation inventée`;
-    return `${reader} : citation modifiée`;
+    return `${reader} : 1 mot changé`;
   })();
 
   const chLine =

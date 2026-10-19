@@ -21,7 +21,7 @@
         <p class="brand">Jeux de Mots</p>
         <h1 class="headline">Lit-il vraiment… ou invente-t-il ?</h1>
         <p class="lede">
-          Wikipédia, actu… ou citations : vraie phrase, ou invention ?
+          Wikipédia, actu ou citations — fidèle, un mot changé, ou bluff total ?
         </p>
         <div class="cta-row">
           <button class="btn btn-primary" data-go="setup">Lancer une partie</button>
@@ -43,11 +43,11 @@
         <h2>Comment jouer</h2>
         <ol class="rules">
           <li><strong>Un lecteur</strong> reçoit une mission secrète : lecture fidèle, ou impro avec un <em>défi</em> (remplacer, lettre, négation, charge de mots…).</li>
-          <li>En mode <em>Citations</em> : vraie citation officielle <em>entière entre guillemets « »</em> + auteur, ou aucune citation à inventer. Exacte / modifiée / inventée — points pour le bluff et pour ceux qui démasquent.</li>
+          <li>En mode <em>Citations</em> : citation officielle entière « … » + auteur, ou invention. Soit <em>exacte</em>, soit <em>1 seul mot</em> changé, soit <em>inventée</em> (prénom + nom fictifs).</li>
+          <li><strong>Anti-suspicion</strong> : hésiter ne compte pas. Accuser à tort coûte des points ; pour marquer sur « modifiée / inventée », il faut <em>nommer</em> l’écart.</li>
           <li>Option <em>avec micro</em> : aide à la réécoute seulement — la STT ne juge pas.</li>
           <li>Les autres votent puis chassent les mots ajoutés.</li>
           <li><strong>Arbitrage</strong> : le groupe valide les ajouts et si le défi a été réussi.</li>
-          <li>Plus l’impro réussit son défi <em>sans se faire cramer</em>, plus elle gagne.</li>
         </ol>
         <button class="btn btn-primary" data-go="setup">C’est compris — jouer</button>
       </div>
@@ -81,21 +81,14 @@
             <input type="radio" name="text-source" value="actu" />
             <span>
               <strong>Actu (Wikinews)</strong>
-              Articles d’actualité via Wikinews.
-            </span>
-          </label>
-          <label class="mode-option">
-            <input type="radio" name="text-source" value="mix" />
-            <span>
-              <strong>Mix</strong>
-              Wikipédia + Wikinews.
+              Vrais articles d’actualité publiés récemment (pas du Wikipédia déguisé).
             </span>
           </label>
           <label class="mode-option">
             <input type="radio" name="text-source" value="citations" />
             <span>
               <strong>Citations</strong>
-              Citation officielle entière « … » + auteur, ou invention de zéro. Votes : exacte / modifiée / inventée.
+              Exacte · 1 mot changé · ou inventée (maxime + auteur fictif).
             </span>
           </label>
         </fieldset>
