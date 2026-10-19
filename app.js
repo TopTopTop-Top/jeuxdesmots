@@ -905,43 +905,97 @@ function normalizeOpenPrice(item) {
   };
 }
 
-/** Prix FR récents via Open Prices (Open Food Facts). */
+function priceCityKey(entry) {
+  const city = (entry.city || "").trim().toLowerCase();
+  const cp = (entry.postcode || "").trim();
+  if (city || cp) return `${cp}|${city}`;
+  // fallback : enseigne + début d’adresse
+  return `${(entry.enseigne || "").toLowerCase()}|${(entry.address || "")
+    .slice(0, 40)
+    .toLowerCase()}`;
+}
+
+/**
+ * Prix FR via Open Prices — pool diversifié par ville
+ * (évite 10 manches du même Leclerc / même ticket).
+ */
 async function fetchOpenPricesPool(need) {
-  const withPhoto = [];
-  const noPhoto = [];
+  const candidates = [];
   const seen = new Set();
-  let page = 1;
-  const target = Math.max(need * 2, need + 4);
-  while (withPhoto.length + noPhoto.length < target && page <= 8) {
+  const target = Math.max(need * 10, 50);
+  // Pages aléatoires pour ne pas toujours prendre les mêmes tickets récents
+  const startPage = 1 + Math.floor(Math.random() * 4);
+  let page = startPage;
+  let empty = 0;
+
+  while (candidates.length < target && empty < 3 && page < startPage + 12) {
+    const order = page % 2 === 0 ? "-created" : "-date";
     const url =
       `https://prices.openfoodfacts.org/api/v1/prices` +
       `?currency=EUR&location_osm_address_country_code=fr` +
-      `&order_by=-date&size=40&page=${page}`;
+      `&order_by=${order}&size=40&page=${page}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("open-prices");
     const data = await res.json();
     const items = data.items || [];
-    if (!items.length) break;
+    if (!items.length) {
+      empty += 1;
+      page += 1;
+      continue;
+    }
+    empty = 0;
     for (const raw of items) {
       if (!isFranceLocation(raw.location)) continue;
       const entry = normalizeOpenPrice(raw);
       if (!entry.name || !(entry.price > 0)) continue;
       if (!entry.enseigne || entry.enseigne === "Enseigne inconnue") continue;
-      const key = `${entry.name}|${entry.enseigne}|${entry.price}|${entry.date}`;
+      const key = `${entry.name}|${entry.enseigne}|${entry.price}|${entry.date}|${priceCityKey(entry)}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      if (entry.image) withPhoto.push(entry);
-      else noPhoto.push(entry);
-      if (withPhoto.length >= target) break;
+      candidates.push(entry);
+      if (candidates.length >= target) break;
     }
     page += 1;
   }
-  // Priorité aux produits AVEC photo
-  const collected = shuffle(withPhoto).concat(shuffle(noPhoto));
-  if (!collected.length) {
+
+  if (!candidates.length) {
     throw new Error("Aucun prix FR trouvé sur Open Prices.");
   }
-  return collected.slice(0, need);
+
+  // Grouper par ville, mélanger, puis 1 produit / ville (priorité photo)
+  const byCity = new Map();
+  for (const e of candidates) {
+    const k = priceCityKey(e);
+    if (!byCity.has(k)) byCity.set(k, []);
+    byCity.get(k).push(e);
+  }
+  const buckets = shuffle(
+    [...byCity.values()].map((list) => {
+      const photos = shuffle(list.filter((x) => x.image));
+      const rest = shuffle(list.filter((x) => !x.image));
+      return photos.concat(rest);
+    })
+  );
+
+  const out = [];
+  // 1er passage : une ville = une manche
+  for (const bucket of buckets) {
+    if (!bucket.length) continue;
+    out.push(bucket[0]);
+    if (out.length >= need) break;
+  }
+  // 2e passage si pas assez de villes : 2e produit d’autres villes
+  if (out.length < need) {
+    for (const bucket of buckets) {
+      for (let i = 1; i < bucket.length; i++) {
+        out.push(bucket[i]);
+        if (out.length >= need) break;
+      }
+      if (out.length >= need) break;
+    }
+  }
+
+  return shuffle(out).slice(0, need);
 }
 
 async function buildTextPool(source, n) {
