@@ -102,6 +102,8 @@ const state = {
   textSource: "wikipedia", // 'wikipedia' | 'actu' | 'citations'
   prepSeconds: 8,
   stakeAccuse: false,
+  turnVoters: [],
+  turnIndex: 0,
   textPool: [],
   textMeta: [], // { source, title }
   totalRounds: 6,
@@ -1469,6 +1471,17 @@ function stopReading() {
   }
 }
 
+function voteLabel(v) {
+  if (!isCitationsMode()) {
+    return v === "impro" ? "invente" : "lit vraiment";
+  }
+  if (v === "fidele") return "exacte";
+  if (v === "modify") return "1 mot changé";
+  if (v === "invent") return "inventée";
+  return v || "—";
+}
+
+/** Votes / chasse : un joueur à la fois (téléphone passé, réponses privées). */
 function startVote() {
   state.declaredSpoken = ($("#transcript-edit").value || "").trim();
   state.transcript = dedupeTranscript(state.declaredSpoken);
@@ -1478,106 +1491,161 @@ function startVote() {
   }
 
   const reader = state.players[state.readerIndex];
+  state.turnVoters = state.players.filter((p) => p !== reader);
+  state.turnIndex = 0;
+  state.votes = {};
+  state.guesses = {};
+
   $("#vote-round").textContent = `Manche ${state.round} / ${state.totalRounds}`;
-  $("#vote-reader-name").textContent = reader;
   const stakeNote = state.stakeAccuse
     ? ` <em>Mise active :</em> accuser engage 1 pt (+3 si vrai, −1 si faux).`
     : "";
   $("#vote-hint").innerHTML = isCitationsMode()
-    ? `<span id="vote-reader-name">${escapeHtml(reader)}</span> : citation exacte, 1 mot changé, ou inventée ?${stakeNote}`
-    : `<span id="vote-reader-name">${escapeHtml(reader)}</span> a-t-il·elle lu le texte… ou inventé des mots ?${stakeNote}`;
+    ? `À propos de <strong>${escapeHtml(reader)}</strong> : exacte, 1 mot changé, ou inventée ?${stakeNote}`
+    : `À propos de <strong>${escapeHtml(reader)}</strong> : lit vraiment, ou invente ?${stakeNote}`;
 
-  const voters = state.players.filter((p) => p !== reader);
-  $("#vote-grid").innerHTML = voters
-    .map((name, i) => {
-      if (isCitationsMode()) {
-        return `
-      <div class="vote-card">
-        <strong>${escapeHtml(name)}</strong>
-        <div class="vote-choices">
-          <label><input type="radio" name="vote-${i}" value="fidele" /> Exacte (entière)</label>
-          <label><input type="radio" name="vote-${i}" value="modify" /> 1 mot changé</label>
-          <label><input type="radio" name="vote-${i}" value="invent" /> Inventée</label>
-        </div>
-      </div>`;
-      }
-      return `
-      <div class="vote-card">
-        <strong>${escapeHtml(name)}</strong>
-        <div class="vote-choices">
-          <label><input type="radio" name="vote-${i}" value="fidele" /> Lit vraiment</label>
-          <label><input type="radio" name="vote-${i}" value="impro" /> Invente</label>
-        </div>
-      </div>`;
-    })
-    .join("");
-
-  $("#submit-votes").disabled = true;
   show("vote");
+  renderVotePass();
+}
+
+function renderVotePass() {
+  const name = state.turnVoters[state.turnIndex];
+  const n = state.turnVoters.length;
+  const i = state.turnIndex + 1;
+  $("#submit-votes").hidden = true;
+  $("#vote-grid").innerHTML = `
+    <div class="pass-turn">
+      <p class="eyebrow">Vote privé ${i} / ${n}</p>
+      <h3>Passe le téléphone à</h3>
+      <p class="big-name">${escapeHtml(name)}</p>
+      <p class="hint warn-hint">Les autres : ne regardez pas. Aucune réponse précédente n’est visible.</p>
+      <button type="button" class="btn btn-primary" id="reveal-vote-turn">Je suis ${escapeHtml(name)} — voter</button>
+    </div>`;
+  $("#reveal-vote-turn").addEventListener("click", showVoteForm);
+}
+
+function showVoteForm() {
+  const name = state.turnVoters[state.turnIndex];
+  const last = state.turnIndex >= state.turnVoters.length - 1;
+  const choices = isCitationsMode()
+    ? `
+        <label><input type="radio" name="vote-current" value="fidele" /> Exacte (entière)</label>
+        <label><input type="radio" name="vote-current" value="modify" /> 1 mot changé</label>
+        <label><input type="radio" name="vote-current" value="invent" /> Inventée</label>`
+    : `
+        <label><input type="radio" name="vote-current" value="fidele" /> Lit vraiment</label>
+        <label><input type="radio" name="vote-current" value="impro" /> Invente</label>`;
+
+  $("#vote-grid").innerHTML = `
+    <div class="vote-card solo-turn">
+      <strong>À toi, ${escapeHtml(name)}</strong>
+      <p class="hint">Réponds seul·e — personne d’autre ne doit voir.</p>
+      <div class="vote-choices">${choices}</div>
+    </div>`;
+
+  const btn = $("#submit-votes");
+  btn.hidden = false;
+  btn.disabled = true;
+  btn.textContent = last
+    ? "Valider mon vote → chasse"
+    : "Valider mon vote → joueur suivant";
 }
 
 function checkVotesReady() {
-  const reader = state.players[state.readerIndex];
-  const voters = state.players.filter((p) => p !== reader);
-  const ready = voters.every((_, i) =>
-    document.querySelector(`input[name="vote-${i}"]:checked`)
+  const ready = Boolean(
+    document.querySelector('input[name="vote-current"]:checked')
   );
-  $("#submit-votes").disabled = !ready;
+  const btn = $("#submit-votes");
+  if (btn && !btn.hidden) btn.disabled = !ready;
+}
+
+function submitCurrentVote() {
+  const checked = document.querySelector('input[name="vote-current"]:checked');
+  if (!checked) return;
+  const name = state.turnVoters[state.turnIndex];
+  state.votes[name] = checked.value;
+  state.turnIndex += 1;
+  if (state.turnIndex >= state.turnVoters.length) {
+    startHunt();
+  } else {
+    renderVotePass();
+  }
 }
 
 function startHunt() {
-  const reader = state.players[state.readerIndex];
-  const voters = state.players.filter((p) => p !== reader);
-
-  voters.forEach((name, i) => {
-    state.votes[name] = document.querySelector(
-      `input[name="vote-${i}"]:checked`
-    ).value;
-  });
+  state.turnIndex = 0;
+  state.guesses = {};
 
   if (isCitationsMode()) {
-    $("#hunt-title").textContent = "Qu’est-ce qui a changé / été inventé ?";
+    $("#hunt-title").textContent = "Chasse privée — écarts / invention";
     $("#hunt-hint").textContent =
-      "Notez les écarts avec la citation officielle, ou la fausse maxime entendue (virgules).";
+      "Un détective à la fois. Note tes soupçons (virgules). Les autres ne voient pas ta réponse.";
   } else {
-    $("#hunt-title").textContent = "Quels mots ont été rajoutés ?";
+    $("#hunt-title").textContent = "Chasse privée — mots rajoutés ?";
     $("#hunt-hint").textContent =
-      "Notez les mots, locutions (2–3 mots) ou le contraire entendu (négation), séparés par des virgules.";
+      "Un détective à la fois. Note ce que tu as entendu (virgules). Écran privé.";
   }
 
-  const voteLabel = (v) => {
-    if (!isCitationsMode()) {
-      return v === "impro" ? "invente" : "lit vraiment";
-    }
-    if (v === "fidele") return "exacte";
-    if (v === "modify") return "1 mot changé";
-    if (v === "invent") return "inventée";
-    return v;
-  };
-
-  $("#hunt-grid").innerHTML = voters
-    .map(
-      (name, i) => `
-      <div class="hunt-card">
-        <strong>${escapeHtml(name)}</strong>
-        <p class="hunt-vote">Vote : ${voteLabel(state.votes[name])}</p>
-        <label class="field">
-          <span>${
-            isCitationsMode()
-              ? "Écarts / invention (virgules)"
-              : "Mots / phrases ajoutés (virgules)"
-          }</span>
-          <input type="text" id="hunt-${i}" placeholder="${
-            isCitationsMode()
-              ? "ex. libre→esclave, fausse maxime…"
-              : "ex. dragon rose, clairement"
-          }" autocomplete="off" />
-        </label>
-      </div>`
-    )
-    .join("");
-
   show("hunt");
+  renderHuntPass();
+}
+
+function renderHuntPass() {
+  const name = state.turnVoters[state.turnIndex];
+  const n = state.turnVoters.length;
+  const i = state.turnIndex + 1;
+  $("#submit-hunt").hidden = true;
+  $("#hunt-grid").innerHTML = `
+    <div class="pass-turn">
+      <p class="eyebrow">Chasse privée ${i} / ${n}</p>
+      <h3>Passe le téléphone à</h3>
+      <p class="big-name">${escapeHtml(name)}</p>
+      <p class="hint warn-hint">Ne montre pas l’écran. Les réponses des autres restent cachées.</p>
+      <button type="button" class="btn btn-primary" id="reveal-hunt-turn">Je suis ${escapeHtml(name)} — écrire</button>
+    </div>`;
+  $("#reveal-hunt-turn").addEventListener("click", showHuntForm);
+}
+
+function showHuntForm() {
+  const name = state.turnVoters[state.turnIndex];
+  const last = state.turnIndex >= state.turnVoters.length - 1;
+  const myVote = voteLabel(state.votes[name]);
+
+  $("#hunt-grid").innerHTML = `
+    <div class="hunt-card solo-turn">
+      <strong>À toi, ${escapeHtml(name)}</strong>
+      <p class="hunt-vote">Ton vote (toi seul·e) : ${escapeHtml(myVote)}</p>
+      <label class="field">
+        <span>${
+          isCitationsMode()
+            ? "Tes écarts / invention (virgules)"
+            : "Mots / phrases ajoutés (virgules)"
+        }</span>
+        <input type="text" id="hunt-current" placeholder="${
+          isCitationsMode()
+            ? "ex. libre→esclave, fausse maxime…"
+            : "ex. dragon rose, clairement"
+        }" autocomplete="off" />
+      </label>
+      <p class="hint">Laisse vide si tu n’as rien entendu de suspect.</p>
+    </div>`;
+
+  const btn = $("#submit-hunt");
+  btn.hidden = false;
+  btn.textContent = last
+    ? "Valider → arbitrage"
+    : "Valider → joueur suivant";
+}
+
+function submitCurrentHunt() {
+  const name = state.turnVoters[state.turnIndex];
+  state.guesses[name] = ($("#hunt-current")?.value || "").trim();
+  state.turnIndex += 1;
+  if (state.turnIndex >= state.turnVoters.length) {
+    startValidate();
+  } else {
+    renderHuntPass();
+  }
 }
 
 function getValidatedFromTextarea() {
@@ -1626,11 +1694,11 @@ function renderSuggestionChips() {
 }
 
 function startValidate() {
+  // state.guesses déjà rempli tour par tour (chasse privée)
   const reader = state.players[state.readerIndex];
-  const voters = state.players.filter((p) => p !== reader);
-  voters.forEach((name, i) => {
-    state.guesses[name] = $(`#hunt-${i}`)?.value || "";
-  });
+  const voters = state.turnVoters.length
+    ? state.turnVoters
+    : state.players.filter((p) => p !== reader);
 
   fillTextTitle($("#validate-song-title"));
   fillQuoteAuthor($("#validate-quote-author"));
@@ -2008,8 +2076,8 @@ function wireNav() {
   $("#show-text").addEventListener("click", showText);
   $("#to-vote").addEventListener("click", startVote);
   $("#vote-grid").addEventListener("change", checkVotesReady);
-  $("#submit-votes").addEventListener("click", startHunt);
-  $("#submit-hunt").addEventListener("click", startValidate);
+  $("#submit-votes").addEventListener("click", submitCurrentVote);
+  $("#submit-hunt").addEventListener("click", submitCurrentHunt);
   $("#stt-suggestions").addEventListener("click", (e) => {
     const chip = e.target.closest("[data-word]");
     if (!chip) return;

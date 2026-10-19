@@ -38,8 +38,8 @@ Votes à 3 options. Anti-suspicion :
 1. Mission secrète du lecteur  
 2. Lecture (± enregistrement)  
 3. Trace écrite (ce qui a vraiment été dit)  
-4. Votes  
-5. Chasse aux mots / écarts  
+4. **Votes privés** (téléphone passé : un joueur à la fois, sans voir les autres)  
+5. **Chasse privée** (idem)  
 6. Arbitrage + score  
 
 ## Lancer

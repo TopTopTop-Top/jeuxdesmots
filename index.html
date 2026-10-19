@@ -242,20 +242,20 @@
     <section class="screen" id="screen-vote" data-screen="vote">
       <div class="panel">
         <p class="eyebrow" id="vote-round">Manche 1</p>
-        <h2>À vous de juger</h2>
+        <h2>Votes privés</h2>
         <p class="hint" id="vote-hint"><span id="vote-reader-name"></span> a-t-il·elle lu le texte… ou inventé des mots ?</p>
         <div class="vote-grid" id="vote-grid"></div>
-        <button class="btn btn-primary" id="submit-votes" disabled>Chasse aux mots</button>
+        <button class="btn btn-primary" id="submit-votes" hidden disabled>Valider mon vote</button>
       </div>
     </section>
 
     <section class="screen" id="screen-hunt" data-screen="hunt">
       <div class="panel">
         <p class="eyebrow">Chasse</p>
-        <h2 id="hunt-title">Quels mots ont été rajoutés ?</h2>
-        <p class="hint" id="hunt-hint">Notez les mots, locutions (2–3 mots) ou le contraire entendu (négation), séparés par des virgules.</p>
+        <h2 id="hunt-title">Chasse privée</h2>
+        <p class="hint" id="hunt-hint">Un joueur à la fois — les réponses des autres restent cachées.</p>
         <div class="hunt-grid" id="hunt-grid"></div>
-        <button class="btn btn-primary" id="submit-hunt">Passer à l’arbitrage</button>
+        <button class="btn btn-primary" id="submit-hunt" hidden>Valider</button>
       </div>
     </section>
 

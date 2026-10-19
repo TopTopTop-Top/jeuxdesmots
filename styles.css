@@ -500,6 +500,20 @@ select:focus {
   line-height: 1.25;
 }
 
+.pass-turn {
+  text-align: center;
+  padding: 1.25rem 0.5rem 0.5rem;
+}
+
+.pass-turn .big-name {
+  margin: 0.5rem 0 1rem;
+}
+
+.solo-turn {
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
 .prep-overlay {
   margin: 0 0 1rem;
   padding: 1rem 1.15rem;
