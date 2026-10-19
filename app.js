@@ -332,8 +332,8 @@ function makeQuoteChallenge(text) {
     type: "quote-invent",
     title: "Inventer une citation",
     detail:
-      "Aucune citation fournie. Invente une maxime complète de zéro, entre guillemets. Ne l’attribue pas à une personne vivante.",
-    target: { change: "invent", allowPhrase: true },
+      "Aucune citation fournie. Invente une maxime complète entre « », puis un auteur fictif en prénom + nom (ex. « Claire Montauban »). Jamais une personne réelle / vivante.",
+    target: { change: "invent", allowPhrase: true, inventAuthor: true },
     bonusOk: 5,
     bonusStealth: 5,
   };
@@ -1200,7 +1200,7 @@ function showText() {
     isCitationsMode() && state.challenge?.type === "quote-invent";
   if (inventing) {
     script.textContent =
-      "Aucune citation — invente une maxime complète (à l’écrit : entre « »).";
+      "Aucune citation — invente une maxime complète entre « », puis un auteur fictif (prénom + nom).";
     script.classList.add("quote", "quote-placeholder");
   } else {
     script.textContent = state.text;
@@ -1305,8 +1305,9 @@ function goToDeclareScreen() {
 
   if (isInventingQuote()) {
     $("#orig-preview").textContent =
-      "(Aucune citation fournie — invente une maxime complète entre « »)";
-    $("#transcript-edit").value = state.declaredSpoken || "«  »";
+      "(Aucune citation — invente maxime « … » + auteur fictif prénom + nom)";
+    $("#transcript-edit").value =
+      state.declaredSpoken || "«  »\n— Prénom Nom";
   } else {
     $("#orig-preview").textContent = state.text;
     // Fidèle ou modif : préremplir la citation OFFICIELLE ENTIÈRE (guillemets)
@@ -1653,7 +1654,7 @@ function startValidate() {
       $("#challenge-ok").checked = seed.length > 0;
     } else if (ch.type === "quote-invent") {
       $("#challenge-ok-label").textContent =
-        "Défi OK : maxime inventée de zéro (complète, entre guillemets à l’écrit)";
+        "Défi OK : maxime inventée entre « » + auteur fictif (prénom + nom), pas une vraie personne";
       $("#challenge-ok").checked = seed.length > 0;
     } else if (ch.type === "letter") {
       const L = ch.target?.letter || ch.target;
