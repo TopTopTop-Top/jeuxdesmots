@@ -43,7 +43,7 @@
         <h2>Comment jouer</h2>
         <ol class="rules">
           <li><strong>Un lecteur</strong> reçoit une mission secrète : lecture fidèle, ou impro avec un <em>défi</em> (remplacer, lettre, négation, charge de mots…).</li>
-          <li>En mode <em>Citations</em> : dire la citation exacte, ou la tordre (sens inverse, chute inventée, emphase…).</li>
+          <li>En mode <em>Citations</em> : l’auteur est affiché. Mission exacte, ou défi — modifier quelques mots, tout réécrire, ou inventer une citation de zéro.</li>
           <li>Option <em>avec micro</em> : aide à la réécoute seulement — la STT ne juge pas.</li>
           <li>Les autres votent puis chassent les mots ajoutés.</li>
           <li><strong>Arbitrage</strong> : le groupe valide les ajouts et si le défi a été réussi.</li>
@@ -95,7 +95,7 @@
             <input type="radio" name="text-source" value="citations" />
             <span>
               <strong>Citations</strong>
-              Dire la vraie citation… ou la tordre / prolonger. Domaine public + citations inventées du jeu (pas de fausses attributions à des vivants).
+              Vraies citations avec auteur. Exacte, ou : retoucher / tout réécrire / inventer de zéro.
             </span>
           </label>
         </fieldset>
@@ -172,6 +172,7 @@
         </div>
 
         <article class="script" id="script-text"></article>
+        <p class="quote-author" id="quote-author" hidden></p>
         <p class="whisper" id="read-whisper"></p>
         <p class="challenge-inline" id="challenge-inline" hidden></p>
 
@@ -200,6 +201,7 @@
         <div class="compare-preview">
           <p class="live-label">Texte d’origine</p>
           <p class="orig-preview" id="orig-preview"></p>
+          <p class="quote-author" id="declare-quote-author" hidden></p>
         </div>
 
         <label class="field">
@@ -242,6 +244,7 @@
         <p class="hint">Comparez l’origine et la version déclarée par le lecteur. Cochez / écrivez les vrais changements, puis comptez les points.</p>
 
         <p class="song-title" id="validate-song-title" hidden></p>
+        <p class="quote-author" id="validate-quote-author" hidden></p>
 
         <audio id="playback-validate" controls class="playback"></audio>
 

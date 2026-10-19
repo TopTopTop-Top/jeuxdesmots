@@ -9,7 +9,7 @@ Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fid
 - **Wikipédia (conseillé)** — générateur illimité (API MediaWiki FR)
 - **Actu (Wikinews)** — articles d’actualité via la même API
 - **Mix** — Wikipédia + Wikinews
-- **Citations** — domaine public (Hugo, Voltaire…) + citations inventées du jeu. Mission : citation exacte ou tordue (sens inverse, chute, emphase…). Pas de fausses attributions à des personnes vivantes.
+- **Citations** — vraies citations domaine public avec **auteur affiché**. Mission exacte, ou défi : modifier quelques mots / tout réécrire / inventer de zéro.
 
 ## Modes micro
 

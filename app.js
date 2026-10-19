@@ -8,15 +8,11 @@ const THEMES = [
 const LETTERS = "ABCDEFGHILMNOPRSTV".split("");
 
 /**
- * Citations jouables en app publique :
- * - auteurs morts depuis 70 ans + → domaine public
- * - citations inventées du jeu (jamais attribuées à une personne vivante)
+ * Citations réelles (domaine public : auteurs morts depuis 70 ans+).
+ * L’auteur est toujours affiché. Les inventions viennent des défis, pas du catalogue.
  */
 const QUOTES = [
-  {
-    author: "René Descartes",
-    text: "Je pense, donc je suis.",
-  },
+  { author: "René Descartes", text: "Je pense, donc je suis." },
   {
     author: "Jean-Jacques Rousseau",
     text: "L’homme est né libre, et partout il est dans les fers.",
@@ -25,10 +21,7 @@ const QUOTES = [
     author: "François Rabelais",
     text: "Science sans conscience n’est que ruine de l’âme.",
   },
-  {
-    author: "Voltaire",
-    text: "Il faut cultiver notre jardin.",
-  },
+  { author: "Voltaire", text: "Il faut cultiver notre jardin." },
   {
     author: "Voltaire",
     text: "Le bonheur est souvent la seule chose qu’on puisse donner sans l’avoir.",
@@ -57,18 +50,12 @@ const QUOTES = [
     author: "La Fontaine",
     text: "Rien ne sert de courir ; il faut partir à point.",
   },
-  {
-    author: "La Fontaine",
-    text: "Aide-toi, le ciel t’aidera.",
-  },
+  { author: "La Fontaine", text: "Aide-toi, le ciel t’aidera." },
   {
     author: "Molière",
     text: "On ne meurt qu’une fois, et c’est pour si longtemps.",
   },
-  {
-    author: "Honoré de Balzac",
-    text: "L’espoir est un prêt fait au bonheur.",
-  },
+  { author: "Honoré de Balzac", text: "L’espoir est un prêt fait au bonheur." },
   {
     author: "Gustave Flaubert",
     text: "Soyez réglé dans votre vie et ordinaire comme un bourgeois, afin d’être violent et original dans vos œuvres.",
@@ -77,10 +64,7 @@ const QUOTES = [
     author: "Charles Baudelaire",
     text: "Il faut être toujours ivre. Tout est là : c’est l’unique question.",
   },
-  {
-    author: "Arthur Rimbaud",
-    text: "Il faut être absolument moderne.",
-  },
+  { author: "Arthur Rimbaud", text: "Il faut être absolument moderne." },
   {
     author: "Émile Zola",
     text: "La vérité est en marche et rien ne l’arrêtera.",
@@ -98,32 +82,16 @@ const QUOTES = [
     text: "Du sublime au ridicule il n’y a qu’un pas.",
   },
   {
-    author: "Citation inventée (Jeux de Mots)",
-    text: "Le silence des cafés froids vaut mieux que les discours trop chauds.",
+    author: "Denis Diderot",
+    text: "Il n’y a qu’un devoir, c’est d’être heureux.",
   },
   {
-    author: "Citation inventée (Jeux de Mots)",
-    text: "Celui qui range ses clés le soir invente le matin.",
+    author: "Chamfort",
+    text: "La plus perdue de toutes les journées est celle où l’on n’a pas ri.",
   },
   {
-    author: "Citation inventée (Jeux de Mots)",
-    text: "Les idées courtes voyagent plus vite que les valises lourdes.",
-  },
-  {
-    author: "Citation inventée (Jeux de Mots)",
-    text: "On ne gagne jamais contre une porte qui refuse d’ouvrir, sauf en changeant de porte.",
-  },
-  {
-    author: "Citation inventée (Jeux de Mots)",
-    text: "La patience est une chaise qu’on emprunte et qu’on rend trop tôt.",
-  },
-  {
-    author: "Citation inventée (Jeux de Mots)",
-    text: "Les grandes décisions se prennent souvent entre deux gorgées tièdes.",
-  },
-  {
-    author: "Citation inventée (Jeux de Mots)",
-    text: "Le courage commence quand la phrase devient plus courte que la peur.",
+    author: "Beaumarchais",
+    text: "Boire sans soif et faire l’amour en tout temps, madame, il n’y a que ça qui nous distingue des autres bêtes.",
   },
 ];
 
@@ -143,6 +111,7 @@ const state = {
   text: "",
   textLabel: "",
   textTitle: "",
+  quoteAuthor: "",
   declaredSpoken: "",
   votes: {},
   guesses: {},
@@ -303,22 +272,27 @@ function makeReplaceChallenge(words) {
   };
 }
 
-/** Défis spéciaux mode citations : tordre / prolonger / punchline. */
+/**
+ * Défis citations (3 cas clairs) :
+ * 1) modifier quelques mots
+ * 2) tout réécrire (à partir de l’idée)
+ * 3) inventer une citation de zéro
+ */
 function makeQuoteChallenge(text) {
   const words = textWords(text);
   const roll = Math.random();
   const idx = pickReplaceableIndex(words);
   const word = words[idx].replace(/[^\p{L}\p{N}'’-]/gu, "");
 
-  if (roll < 0.28 && words.length >= 3) {
+  // ~34% : quelques retouches
+  if (roll < 0.34) {
     return {
-      type: "replace",
-      title: `Tords « ${word} »`,
-      detail: `Remplace uniquement « ${word} » par un autre mot (ou locution 2–3 mots) qui change le sens — autre famille, pas de prénom.`,
+      type: "quote-tweak",
+      title: "Modifier quelques trucs",
+      detail: `Garde la citation reconnaissable, mais change 1 à 3 mots (ex. autour de « ${word} ») pour tordre le sens — sans annoncer que tu modifies.`,
       target: {
+        change: "tweak",
         original: word.toLowerCase(),
-        noSameStem: true,
-        noProperName: true,
         allowPhrase: true,
       },
       bonusOk: 4,
@@ -326,48 +300,27 @@ function makeQuoteChallenge(text) {
     };
   }
 
-  if (roll < 0.5) {
+  // ~33% : tout changer
+  if (roll < 0.67) {
     return {
-      type: "quote-extend",
-      title: "Prolonge la citation",
+      type: "quote-rewrite",
+      title: "Tout réécrire",
       detail:
-        "Ajoute une 2ᵉ phrase courte inventée qui sonne comme la suite naturelle — sans annoncer que tu inventes.",
-      target: { change: "extend", allowPhrase: true },
+        "Garde seulement le thème / l’idée vague. Reformule presque toute la phrase comme une autre maxime — ça doit encore sonner « citation ».",
+      target: { change: "rewrite", allowPhrase: true },
       bonusOk: 4,
       bonusStealth: 5,
     };
   }
 
-  if (roll < 0.68) {
-    return {
-      type: "negate",
-      title: "Sens inverse",
-      detail: `Inverse l’idée (autour de « ${word} » ou ailleurs) : transforme la maxime en son contraire, tout en restant solennel.`,
-      target: { anchor: word.toLowerCase(), allowPhrase: true },
-      bonusOk: 4,
-      bonusStealth: 5,
-    };
-  }
-
-  if (roll < 0.84) {
-    return {
-      type: "quote-pompous",
-      title: "Emphase ridicule",
-      detail:
-        "Glisse 2 ou 3 mots grandiloquents (ex. « éternellement », « sublime destin ») sans casser le ton de citation.",
-      target: { change: "pompous", allowPhrase: true },
-      bonusOk: 3,
-      bonusStealth: 4,
-    };
-  }
-
+  // ~33% : inventer complètement
   return {
-    type: "quote-punch",
-    title: "Change la chute",
+    type: "quote-invent",
+    title: "Inventer complètement",
     detail:
-      "Garde le début crédible, mais remplace la fin / la chute par une invention — le tout doit encore sonner « citation ».",
-    target: { change: "punch", allowPhrase: true },
-    bonusOk: 4,
+      "N’utilise pas la citation affichée. Invente une fausse maxime entière (ton solennel). Ne l’attribue pas à une personne vivante — juste dis-la comme une citation.",
+    target: { change: "invent", allowPhrase: true },
+    bonusOk: 5,
     bonusStealth: 5,
   };
 }
@@ -802,11 +755,17 @@ async function buildTextPool(source, n) {
     const pool = shuffle(QUOTES).map((q) => ({
       text: q.text,
       title: q.author,
+      author: q.author,
       source: "citations",
     }));
     while (pool.length < n) {
       const q = pick(QUOTES);
-      pool.push({ text: q.text, title: q.author, source: "citations" });
+      pool.push({
+        text: q.text,
+        title: q.author,
+        author: q.author,
+        source: "citations",
+      });
     }
     return pool.slice(0, n);
   }
@@ -909,6 +868,8 @@ function nextRound() {
   }
   state.text = entry.text;
   state.textTitle = entry.title || "";
+  state.quoteAuthor =
+    entry.author || (isCitationsMode() ? entry.title || "" : "");
   state.textLabel = sourceLabel(entry.source);
   state.declaredSpoken = "";
   state.challenge =
@@ -957,7 +918,7 @@ function revealMission() {
       $("#challenge-title").textContent = ch.title;
       $("#challenge-detail").textContent = ch.detail;
       help.textContent = isCitationsMode()
-        ? "Alterne / invente selon le défi. Plus les autres croient que c’est la vraie citation, plus tu gagnes." +
+        ? "Suis le défi. Plus les autres croient à une vraie citation, plus tu gagnes." +
           micNote
         : "Plus tu ajoutes de mots nouveaux sans qu’on les trouve, plus tu gagnes. Chaque mot cramé = 0 pour toi." +
           micNote;
@@ -1175,6 +1136,7 @@ function showText() {
   if (pill) pill.textContent = state.textLabel || "";
 
   fillTextTitle($("#song-title"));
+  fillQuoteAuthor($("#quote-author"));
 
   const script = $("#script-text");
   script.textContent = state.text;
@@ -1182,10 +1144,10 @@ function showText() {
   $("#read-whisper").textContent =
     state.mission === "fidele"
       ? isCitationsMode()
-        ? "Rappel secret : citation exacte."
+        ? "Rappel secret : dis la citation exacte."
         : "Rappel secret : reste fidèle au texte."
       : isCitationsMode()
-        ? "Rappel secret : tords la citation selon le défi. Ensuite tu écriras ta version."
+        ? "Rappel secret : suis le défi. Ensuite tu écriras ta version."
         : "Rappel secret : invente sans te faire griller. Ensuite tu écriras ta version.";
 
   const inline = $("#challenge-inline");
@@ -1202,15 +1164,32 @@ function showText() {
   show("read");
 }
 
-/** Affiche le titre d’article / l’auteur de la citation. */
+/** Affiche le titre d’article (hors citations : l’auteur est sous la citation). */
 function fillTextTitle(titleEl) {
   if (!titleEl) return;
+  if (isCitationsMode()) {
+    titleEl.hidden = true;
+    titleEl.textContent = "";
+    return;
+  }
   if (state.textTitle) {
     titleEl.hidden = false;
     titleEl.textContent = state.textTitle;
   } else {
     titleEl.hidden = true;
     titleEl.textContent = "";
+  }
+}
+
+/** Affiche l’auteur sous la citation (vraies citations uniquement). */
+function fillQuoteAuthor(el) {
+  if (!el) return;
+  if (isCitationsMode() && state.quoteAuthor) {
+    el.hidden = false;
+    el.textContent = `— ${state.quoteAuthor}`;
+  } else {
+    el.hidden = true;
+    el.textContent = "";
   }
 }
 
@@ -1250,6 +1229,7 @@ function goToDeclareScreen() {
   const sttDraft = dedupeTranscript(state.committed);
 
   fillTextTitle($("#declare-song-title"));
+  fillQuoteAuthor($("#declare-quote-author"));
 
   $("#orig-preview").textContent = state.text;
 
@@ -1491,6 +1471,7 @@ function startValidate() {
   });
 
   fillTextTitle($("#validate-song-title"));
+  fillQuoteAuthor($("#validate-quote-author"));
 
   $("#val-original").textContent = state.text;
   const spokenWrap = $("#val-spoken-wrap");
@@ -1558,20 +1539,19 @@ function startValidate() {
       $("#challenge-ok-label").textContent =
         `Défi OK : « ${orig} » modifié → 1 mot ou locution 2–3 mots, autre famille${letterBit}, sans prénom`;
     } else if (ch.type === "negate") {
-      $("#challenge-ok-label").textContent = isCitationsMode()
-        ? "Défi OK : le sens de la citation a bien été inversé"
-        : "Défi OK : une info du texte a bien été inversée / niée (le contraire a été dit)";
-    } else if (ch.type === "quote-extend") {
       $("#challenge-ok-label").textContent =
-        "Défi OK : une 2ᵉ phrase inventée a bien été ajoutée";
+        "Défi OK : une info du texte a bien été inversée / niée (le contraire a été dit)";
+    } else if (ch.type === "quote-tweak") {
+      $("#challenge-ok-label").textContent =
+        "Défi OK : quelques mots ont bien été modifiés (citation encore reconnaissable)";
       $("#challenge-ok").checked = seed.length > 0;
-    } else if (ch.type === "quote-pompous") {
+    } else if (ch.type === "quote-rewrite") {
       $("#challenge-ok-label").textContent =
-        "Défi OK : des mots grandiloquents ont bien été glissés";
+        "Défi OK : la phrase a été largement réécrite (presque tout changé)";
       $("#challenge-ok").checked = seed.length > 0;
-    } else if (ch.type === "quote-punch") {
+    } else if (ch.type === "quote-invent") {
       $("#challenge-ok-label").textContent =
-        "Défi OK : la chute / la fin a bien été changée";
+        "Défi OK : une citation entièrement inventée a été dite (pas l’originale)";
       $("#challenge-ok").checked = seed.length > 0;
     } else if (ch.type === "letter") {
       const L = ch.target?.letter || ch.target;
