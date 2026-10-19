@@ -9,7 +9,7 @@ Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fid
 - **Wikipédia (conseillé)** — générateur illimité (API MediaWiki FR)
 - **Actu (Wikinews)** — articles d’actualité via la même API
 - **Mix** — Wikipédia + Wikinews
-- **Citations** — vraies citations domaine public avec **auteur affiché**. Mission exacte, ou défi : modifier quelques mots / tout réécrire / inventer de zéro.
+- **Citations** — citation officielle **entière entre guillemets « »** + auteur, ou aucune citation (inventer). Missions : exacte / modifier un peu ou beaucoup / inventer. Votes à 3 options ; points pour bluff et démasquage.
 
 ## Modes micro
 

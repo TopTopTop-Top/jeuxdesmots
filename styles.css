@@ -519,6 +519,12 @@ select:focus {
   font-style: italic;
 }
 
+.script.quote-placeholder {
+  font-style: italic;
+  opacity: 0.85;
+  border-style: dashed;
+}
+
 @keyframes paperIn {
   from {
     opacity: 0;

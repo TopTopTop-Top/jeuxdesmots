@@ -112,6 +112,7 @@ const state = {
   textLabel: "",
   textTitle: "",
   quoteAuthor: "",
+  quoteOfficial: "", // citation réelle complète (même si invent = cachée à l’écran)
   declaredSpoken: "",
   votes: {},
   guesses: {},
@@ -272,24 +273,39 @@ function makeReplaceChallenge(words) {
   };
 }
 
+/** Citation officielle écrite : toujours entre guillemets français. */
+function withGuillemets(text) {
+  const s = String(text || "").trim();
+  if (!s) return "";
+  if (/^[«"]/.test(s)) return s.replace(/^["“]/, "« ").replace(/["”]$/, " »");
+  return `« ${s} »`;
+}
+
+function stripGuillemets(text) {
+  return String(text || "")
+    .replace(/^[«»"“”]+/, "")
+    .replace(/[«»"“”]+$/g, "")
+    .replace(/[«»]/g, "")
+    .trim();
+}
+
 /**
- * Défis citations (3 cas clairs) :
- * 1) modifier quelques mots
- * 2) tout réécrire (à partir de l’idée)
- * 3) inventer une citation de zéro
+ * Impro citations :
+ * - modifier un peu / beaucoup (citation réelle affichée)
+ * - inventer (aucune citation affichée)
+ * Exacte = mission fidèle (citation entière obligatoire).
  */
 function makeQuoteChallenge(text) {
-  const words = textWords(text);
+  const words = textWords(stripGuillemets(text));
   const roll = Math.random();
-  const idx = pickReplaceableIndex(words);
-  const word = words[idx].replace(/[^\p{L}\p{N}'’-]/gu, "");
+  const idx = words.length ? pickReplaceableIndex(words) : 0;
+  const word = (words[idx] || "mot").replace(/[^\p{L}\p{N}'’-]/gu, "");
 
-  // ~34% : quelques retouches
   if (roll < 0.34) {
     return {
       type: "quote-tweak",
-      title: "Modifier quelques trucs",
-      detail: `Garde la citation reconnaissable, mais change 1 à 3 mots (ex. autour de « ${word} ») pour tordre le sens — sans annoncer que tu modifies.`,
+      title: "Modifier un peu",
+      detail: `La citation réelle est affichée en entier. Change seulement 1 à 3 mots (ex. autour de « ${word} »). À l’écrit, garde des guillemets.`,
       target: {
         change: "tweak",
         original: word.toLowerCase(),
@@ -300,25 +316,23 @@ function makeQuoteChallenge(text) {
     };
   }
 
-  // ~33% : tout changer
   if (roll < 0.67) {
     return {
       type: "quote-rewrite",
-      title: "Tout réécrire",
+      title: "Modifier beaucoup",
       detail:
-        "Garde seulement le thème / l’idée vague. Reformule presque toute la phrase comme une autre maxime — ça doit encore sonner « citation ».",
+        "La citation réelle est affichée. Réécris-en presque tout (idée vague OK) pour que ça sonne encore comme une citation entre guillemets.",
       target: { change: "rewrite", allowPhrase: true },
       bonusOk: 4,
       bonusStealth: 5,
     };
   }
 
-  // ~33% : inventer complètement
   return {
     type: "quote-invent",
-    title: "Inventer complètement",
+    title: "Inventer une citation",
     detail:
-      "N’utilise pas la citation affichée. Invente une fausse maxime entière (ton solennel). Ne l’attribue pas à une personne vivante — juste dis-la comme une citation.",
+      "Aucune citation fournie. Invente une maxime complète de zéro, entre guillemets. Ne l’attribue pas à une personne vivante.",
     target: { change: "invent", allowPhrase: true },
     bonusOk: 5,
     bonusStealth: 5,
@@ -814,6 +828,17 @@ function isCitationsMode() {
   return state.textSource === "citations";
 }
 
+/** Vérité pour le vote en mode citations. */
+function citationTruth() {
+  if (state.mission === "fidele") return "fidele";
+  if (state.challenge?.type === "quote-invent") return "invent";
+  return "modify"; // tweak ou rewrite
+}
+
+function isInventingQuote() {
+  return isCitationsMode() && state.challenge?.type === "quote-invent";
+}
+
 async function startGame() {
   cleanupMedia();
   const btn = $("#start-game");
@@ -866,18 +891,40 @@ function nextRound() {
     endGame();
     return;
   }
-  state.text = entry.text;
   state.textTitle = entry.title || "";
-  state.quoteAuthor =
-    entry.author || (isCitationsMode() ? entry.title || "" : "");
   state.textLabel = sourceLabel(entry.source);
   state.declaredSpoken = "";
+  state.quoteOfficial = "";
+  state.quoteAuthor = "";
+
+  if (isCitationsMode()) {
+    // Citation réelle officielle = texte ENTIER + guillemets
+    state.quoteOfficial = withGuillemets(entry.text);
+    state.quoteAuthor = entry.author || entry.title || "";
+    state.text = state.quoteOfficial;
+    state.textTitle = entry.author || entry.title || "";
+  } else {
+    state.text = entry.text;
+  }
+
   state.challenge =
     slot.mission === "impro"
       ? slot.challenge && slot.challenge !== "pending"
         ? slot.challenge
         : makeChallenge(state.text)
       : null;
+
+  // Inventer = pas de citation à l’écran (mais on garde l’officielle de côté)
+  if (
+    isCitationsMode() &&
+    state.mission === "impro" &&
+    state.challenge?.type === "quote-invent"
+  ) {
+    state.text = "";
+    state.quoteAuthor = "";
+    state.textTitle = "";
+  }
+
   state.votes = {};
   state.guesses = {};
   state.committed = "";
@@ -905,20 +952,30 @@ function revealMission() {
       : " Mode sans micro.";
 
   if (state.mission === "fidele") {
-    badge.textContent = isCitationsMode() ? "Citation exacte" : "Lecture fidèle";
+    badge.textContent = isCitationsMode()
+      ? "Citation exacte (entière)"
+      : "Lecture fidèle";
     help.textContent = isCitationsMode()
-      ? "Dis la citation exactement. Pas un mot de plus, pas un de moins." + micNote
+      ? "Tu as une vraie citation officielle : dis-la EN ENTIER, sans rien changer. À l’écrit elle est entre guillemets « »." +
+        micNote
       : "Lis exactement ce qui est écrit. Pas un mot de plus." + micNote;
     card.hidden = true;
   } else {
-    badge.textContent = isCitationsMode() ? "Citation tordue" : "Impro";
     const ch = state.challenge;
+    if (isCitationsMode()) {
+      badge.textContent =
+        ch?.type === "quote-invent"
+          ? "Inventer une citation"
+          : "Modifier la citation";
+    } else {
+      badge.textContent = "Impro";
+    }
     if (ch) {
       card.hidden = false;
       $("#challenge-title").textContent = ch.title;
       $("#challenge-detail").textContent = ch.detail;
       help.textContent = isCitationsMode()
-        ? "Suis le défi. Plus les autres croient à une vraie citation, plus tu gagnes." +
+        ? "Les autres votent exacte / modifiée / inventée. Plus tu bluffes, plus tu marques — s’ils te démasquent, eux marquent." +
           micNote
         : "Plus tu ajoutes de mots nouveaux sans qu’on les trouve, plus tu gagnes. Chaque mot cramé = 0 pour toi." +
           micNote;
@@ -1139,15 +1196,26 @@ function showText() {
   fillQuoteAuthor($("#quote-author"));
 
   const script = $("#script-text");
-  script.textContent = state.text;
-  script.classList.toggle("quote", isCitationsMode());
+  const inventing =
+    isCitationsMode() && state.challenge?.type === "quote-invent";
+  if (inventing) {
+    script.textContent =
+      "Aucune citation — invente une maxime complète (à l’écrit : entre « »).";
+    script.classList.add("quote", "quote-placeholder");
+  } else {
+    script.textContent = state.text;
+    script.classList.toggle("quote", isCitationsMode());
+    script.classList.remove("quote-placeholder");
+  }
   $("#read-whisper").textContent =
     state.mission === "fidele"
       ? isCitationsMode()
-        ? "Rappel secret : dis la citation exacte."
+        ? "Rappel secret : citation officielle EN ENTIER, rien changer."
         : "Rappel secret : reste fidèle au texte."
       : isCitationsMode()
-        ? "Rappel secret : suis le défi. Ensuite tu écriras ta version."
+        ? inventing
+          ? "Rappel secret : invente tout. Ensuite tu écriras ta version entre guillemets."
+          : "Rappel secret : modifie selon le défi. Ensuite tu écriras ta version entre guillemets."
         : "Rappel secret : invente sans te faire griller. Ensuite tu écriras ta version.";
 
   const inline = $("#challenge-inline");
@@ -1195,8 +1263,12 @@ function fillQuoteAuthor(el) {
 
 /** Diff simple pour suggestions d’arbitrage (origine ↔ version déclarée). */
 function suggestChangesFromDeclared(original, spoken) {
-  const o = normalizeTokens(original);
-  const s = normalizeTokens(spoken);
+  const o = normalizeTokens(
+    isCitationsMode() ? stripGuillemets(original) : original
+  );
+  const s = normalizeTokens(
+    isCitationsMode() ? stripGuillemets(spoken) : spoken
+  );
   const suggestions = [];
 
   const oCount = {};
@@ -1231,10 +1303,23 @@ function goToDeclareScreen() {
   fillTextTitle($("#declare-song-title"));
   fillQuoteAuthor($("#declare-quote-author"));
 
-  $("#orig-preview").textContent = state.text;
+  if (isInventingQuote()) {
+    $("#orig-preview").textContent =
+      "(Aucune citation fournie — invente une maxime complète entre « »)";
+    $("#transcript-edit").value = state.declaredSpoken || "«  »";
+  } else {
+    $("#orig-preview").textContent = state.text;
+    // Fidèle ou modif : préremplir la citation OFFICIELLE ENTIÈRE (guillemets)
+    $("#transcript-edit").value = state.declaredSpoken || state.text;
+  }
 
-  // Préremplir avec l’original : le lecteur ne corrige que ses mods.
-  $("#transcript-edit").value = state.declaredSpoken || state.text;
+  if (isCitationsMode() && state.mission === "fidele") {
+    const hint = $("#screen-transcript .warn-hint");
+    if (hint) {
+      hint.textContent =
+        "Citation officielle : elle doit rester ENTIÈRE entre guillemets « ». Ne change rien.";
+    }
+  }
 
   const sttBtn = $("#use-stt-draft");
   if (sttDraft && sttDraft.length > 10) {
@@ -1333,23 +1418,32 @@ function startVote() {
   $("#vote-round").textContent = `Manche ${state.round} / ${state.totalRounds}`;
   $("#vote-reader-name").textContent = reader;
   $("#vote-hint").innerHTML = isCitationsMode()
-    ? `<span id="vote-reader-name">${escapeHtml(reader)}</span> a-t-il·elle dit la vraie citation… ou l’a-t-il·elle tordue / inventée ?`
+    ? `<span id="vote-reader-name">${escapeHtml(reader)}</span> : citation exacte, modifiée, ou inventée ?`
     : `<span id="vote-reader-name">${escapeHtml(reader)}</span> a-t-il·elle lu le texte… ou inventé des mots ?`;
 
   const voters = state.players.filter((p) => p !== reader);
-  const fidelLabel = isCitationsMode() ? "Citation exacte" : "Lit vraiment";
-  const improLabel = isCitationsMode() ? "Tordue / inventée" : "Invente";
   $("#vote-grid").innerHTML = voters
-    .map(
-      (name, i) => `
+    .map((name, i) => {
+      if (isCitationsMode()) {
+        return `
       <div class="vote-card">
         <strong>${escapeHtml(name)}</strong>
         <div class="vote-choices">
-          <label><input type="radio" name="vote-${i}" value="fidele" /> ${fidelLabel}</label>
-          <label><input type="radio" name="vote-${i}" value="impro" /> ${improLabel}</label>
+          <label><input type="radio" name="vote-${i}" value="fidele" /> Exacte (entière)</label>
+          <label><input type="radio" name="vote-${i}" value="modify" /> Modifiée</label>
+          <label><input type="radio" name="vote-${i}" value="invent" /> Inventée</label>
         </div>
-      </div>`
-    )
+      </div>`;
+      }
+      return `
+      <div class="vote-card">
+        <strong>${escapeHtml(name)}</strong>
+        <div class="vote-choices">
+          <label><input type="radio" name="vote-${i}" value="fidele" /> Lit vraiment</label>
+          <label><input type="radio" name="vote-${i}" value="impro" /> Invente</label>
+        </div>
+      </div>`;
+    })
     .join("");
 
   $("#submit-votes").disabled = true;
@@ -1376,38 +1470,40 @@ function startHunt() {
   });
 
   if (isCitationsMode()) {
-    $("#hunt-title").textContent = "Qu’est-ce qui a changé ?";
+    $("#hunt-title").textContent = "Qu’est-ce qui a changé / été inventé ?";
     $("#hunt-hint").textContent =
-      "Notez les mots tordus / ajoutés / la chute inventée (virgules).";
+      "Notez les écarts avec la citation officielle, ou la fausse maxime entendue (virgules).";
   } else {
     $("#hunt-title").textContent = "Quels mots ont été rajoutés ?";
     $("#hunt-hint").textContent =
       "Notez les mots, locutions (2–3 mots) ou le contraire entendu (négation), séparés par des virgules.";
   }
 
+  const voteLabel = (v) => {
+    if (!isCitationsMode()) {
+      return v === "impro" ? "invente" : "lit vraiment";
+    }
+    if (v === "fidele") return "exacte";
+    if (v === "modify") return "modifiée";
+    if (v === "invent") return "inventée";
+    return v;
+  };
+
   $("#hunt-grid").innerHTML = voters
     .map(
       (name, i) => `
       <div class="hunt-card">
         <strong>${escapeHtml(name)}</strong>
-        <p class="hunt-vote">Vote : ${
-          state.votes[name] === "impro"
-            ? isCitationsMode()
-              ? "tordue"
-              : "invente"
-            : isCitationsMode()
-              ? "exacte"
-              : "lit vraiment"
-        }</p>
+        <p class="hunt-vote">Vote : ${voteLabel(state.votes[name])}</p>
         <label class="field">
           <span>${
             isCitationsMode()
-              ? "Changements entendus (virgules)"
+              ? "Écarts / invention (virgules)"
               : "Mots / phrases ajoutés (virgules)"
           }</span>
           <input type="text" id="hunt-${i}" placeholder="${
             isCitationsMode()
-              ? "ex. libre→esclave, et le reste est silence"
+              ? "ex. libre→esclave, fausse maxime…"
               : "ex. dragon rose, clairement"
           }" autocomplete="off" />
         </label>
@@ -1510,18 +1606,24 @@ function startValidate() {
   });
   syncValidatedField(seed);
 
-  $("#validate-mission-hint").textContent =
-    state.mission === "impro"
-      ? isCitationsMode()
-        ? "Mission : CITATION TORDUE. Listez les vrais changements (mots, chute, prolongation)."
-        : "Mission : IMPRO. Dans la liste, mettez surtout le(s) mot(s) inventé(s) / de remplacement."
-      : isCitationsMode()
-        ? "Mission : CITATION EXACTE. Liste normalement vide."
+  if (isCitationsMode()) {
+    const truth = citationTruth();
+    $("#validate-mission-hint").textContent =
+      truth === "fidele"
+        ? "Mission : CITATION EXACTE ENTIÈRE (guillemets). Liste normalement vide."
+        : truth === "invent"
+          ? "Mission : CITATION INVENTÉE. Listez la fausse maxime / les éléments inventés."
+          : "Mission : CITATION MODIFIÉE. Listez les écarts avec l’officielle entière.";
+    $("#validated-additions").placeholder =
+      "ex. libre→esclave, « fausse maxime complète »";
+  } else {
+    $("#validate-mission-hint").textContent =
+      state.mission === "impro"
+        ? "Mission : IMPRO. Dans la liste, mettez surtout le(s) mot(s) inventé(s) / de remplacement."
         : "Mission : FIDÈLE. Liste normalement vide.";
-
-  $("#validated-additions").placeholder = isCitationsMode()
-    ? "ex. libre→esclave, sublime destin, et le reste est silence"
-    : "ex. violet, dragon rose, soudainement";
+    $("#validated-additions").placeholder =
+      "ex. violet, dragon rose, soudainement";
+  }
 
   const arb = $("#challenge-arbiter");
   const ch = state.challenge;
@@ -1547,11 +1649,11 @@ function startValidate() {
       $("#challenge-ok").checked = seed.length > 0;
     } else if (ch.type === "quote-rewrite") {
       $("#challenge-ok-label").textContent =
-        "Défi OK : la phrase a été largement réécrite (presque tout changé)";
+        "Défi OK : citation largement modifiée (presque tout changé)";
       $("#challenge-ok").checked = seed.length > 0;
     } else if (ch.type === "quote-invent") {
       $("#challenge-ok-label").textContent =
-        "Défi OK : une citation entièrement inventée a été dite (pas l’originale)";
+        "Défi OK : maxime inventée de zéro (complète, entre guillemets à l’écrit)";
       $("#challenge-ok").checked = seed.length > 0;
     } else if (ch.type === "letter") {
       const L = ch.target?.letter || ch.target;
@@ -1589,9 +1691,11 @@ function confirmValidateAndScore() {
   const caughtNorm = new Set();
   const finderCount = {}; // normalized phrase -> how many detectives found it
 
+  const truth = isCitationsMode() ? citationTruth() : state.mission;
+
   // Pass 1 : votes + hits détectives
   const voterResults = voters.map((name) => {
-    const voteOk = state.votes[name] === state.mission;
+    const voteOk = state.votes[name] === truth;
     let pts = 0;
     const bits = [];
 
@@ -1711,14 +1815,17 @@ function confirmValidateAndScore() {
     }
   }
 
-  $("#reveal-title").textContent =
-    state.mission === "fidele"
-      ? isCitationsMode()
-        ? `${reader} : citation exacte`
-        : `${reader} lisait vraiment`
-      : isCitationsMode()
-        ? `${reader} : citation tordue`
+  $("#reveal-title").textContent = (() => {
+    if (!isCitationsMode()) {
+      return state.mission === "fidele"
+        ? `${reader} lisait vraiment`
         : `${reader} inventait des mots`;
+    }
+    const t = citationTruth();
+    if (t === "fidele") return `${reader} : citation exacte (entière)`;
+    if (t === "invent") return `${reader} : citation inventée`;
+    return `${reader} : citation modifiée`;
+  })();
 
   const chLine =
     state.mission === "impro" && state.challenge
