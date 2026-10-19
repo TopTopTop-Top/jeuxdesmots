@@ -1860,8 +1860,10 @@ function confirmValidateAndScore() {
           $("#challenge-ok")?.checked ? " ✓" : " ✗"
         }.`
       : "";
-  $("#reveal-detail").textContent =
-    "Score basé sur l’arbitrage humain (liste + défi), pas sur la STT." + chLine;
+  $("#reveal-detail").textContent = isCitationsMode()
+    ? "Hésiter ≠ coupable. Accuser sans preuve coûte. Nommer l’écart pour marquer." +
+      chLine
+    : "Score basé sur l’arbitrage humain (liste + défi), pas sur la STT." + chLine;
 
   const audio = $("#playback-reveal");
   if (state.audioUrl) {
