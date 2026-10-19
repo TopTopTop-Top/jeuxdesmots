@@ -625,7 +625,7 @@ function renderPlayers() {
         `<li>${escapeHtml(name)} <button type="button" aria-label="Retirer" data-remove="${i}">×</button></li>`
     )
     .join("");
-  $("#start-game").disabled = state.players.length < 3;
+  $("#start-game").disabled = state.players.length < 2;
 }
 
 function addPlayer() {
