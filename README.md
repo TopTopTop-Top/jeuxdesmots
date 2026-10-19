@@ -1,25 +1,38 @@
 # Jeux de Mots
 
-Appli de soirée : une personne lit un texte à l’écran, les autres doivent deviner si elle **lit vraiment** ou si elle **invente / rajoute des mots**.
+Jeu de soirée : une personne lit un texte, les autres devinent si c’est **fidèle** ou **impro** (mots rajoutés).
 
-Teste l’impro et la dissimulation.
+**Les points sont validés par le groupe.** Le micro (optionnel) sert seulement à réécouter — la STT ne décide pas du score.
 
-## Comment jouer
+## Sources de textes
 
-1. Ajoutez au moins 3 joueurs.
-2. À chaque manche, un lecteur reçoit une mission secrète :
-   - **Lecture fidèle** — lire exactement le texte
-   - **Impro** — inventer ou rajouter des mots en faisant semblant de lire
-3. Les autres votent : lit vraiment / invente.
-4. Points pour les bons détectives, et pour le lecteur qui bluffe bien.
+- **Wikipédia (conseillé)** — générateur illimité (API MediaWiki FR)
+- **Actu (Wikinews)** — articles d’actualité via la même API
+- **Mix** — Wikipédia + Wikinews
+- **Citations** — domaine public (Hugo, Voltaire…) + citations inventées du jeu. Mission : citation exacte ou tordue (sens inverse, chute, emphase…). Pas de fausses attributions à des personnes vivantes.
 
-## Lancer en local
+## Modes micro
 
-Ouvrez simplement `index.html` dans un navigateur, ou :
+- **Sans micro (recommandé)** — vote + chasse + arbitrage humain
+- **Avec micro (aide)** — enregistrement + brouillon STT ; jamais scorée seule
+
+## Déroulement
+
+1. Mission secrète du lecteur  
+2. Lecture (± enregistrement)  
+3. **Trace écrite** : le lecteur édite l’original pour coller à ce qu’il a vraiment dit  
+4. Votes des autres  
+5. Chasse aux mots ajoutés  
+6. **Arbitrage** : comparer origine ↔ version déclarée, valider la liste, score  
+
+## Lancer
 
 ```bash
-npx serve .
+cd ~/Desktop/jeuxdesmots
+npx serve . -p 3456
 ```
+
+Ouvre http://localhost:3456 (Chrome si tu actives le micro).
 
 ## Stack
 

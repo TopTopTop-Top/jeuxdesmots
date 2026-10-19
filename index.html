@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Jeux de Mots — Lecture ou Impro ?</title>
-  <meta name="description" content="Devine si la personne lit vraiment ce qui est écrit, ou invente des mots. Teste l'impro et la dissimulation." />
+  <meta name="description" content="Devine si la personne lit vraiment ou invente. Score validé par le groupe — le micro n’est qu’une aide." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -16,14 +16,12 @@
   <div class="glow glow-b" aria-hidden="true"></div>
 
   <main id="app">
-    <!-- Accueil -->
     <section class="screen active" id="screen-home" data-screen="home">
       <header class="hero">
         <p class="brand">Jeux de Mots</p>
         <h1 class="headline">Lit-il vraiment… ou invente-t-il ?</h1>
         <p class="lede">
-          Une personne lit à voix haute. Les autres doivent deviner :
-          lecture fidèle, ou impro cachée derrière un air sérieux.
+          Wikipédia, actu… ou citations : vraie phrase, ou invention ?
         </p>
         <div class="cta-row">
           <button class="btn btn-primary" data-go="setup">Lancer une partie</button>
@@ -31,36 +29,35 @@
         </div>
       </header>
       <div class="stage-strip" aria-hidden="true">
-        <span>Impro</span>
+        <span>Vote</span>
         <span>·</span>
-        <span>Dissimulation</span>
+        <span>Chasse</span>
         <span>·</span>
-        <span>Observation</span>
+        <span>Arbitrage humain</span>
       </div>
     </section>
 
-    <!-- Règles -->
     <section class="screen" id="screen-rules" data-screen="rules">
       <div class="panel narrow">
         <button class="back" data-go="home">← Retour</button>
         <h2>Comment jouer</h2>
         <ol class="rules">
-          <li><strong>Un lecteur</strong> est tiré au sort. Les autres détournent le regard pendant la mission secrète.</li>
-          <li>La mission est soit <em>Lecture fidèle</em> (lire exactement le texte), soit <em>Impro</em> (rajouter / inventer des mots en faisant semblant de lire).</li>
-          <li>Le lecteur lit à voix haute. Personne d’autre ne voit l’écran.</li>
-          <li>Chacun vote : « Il lit vraiment » ou « Il invente ».</li>
-          <li>Révélation : points pour les bons détectives… et pour le lecteur s’il a bluffé sans se faire prendre.</li>
+          <li><strong>Un lecteur</strong> reçoit une mission secrète : lecture fidèle, ou impro avec un <em>défi</em> (remplacer, lettre, négation, charge de mots…).</li>
+          <li>En mode <em>Citations</em> : dire la citation exacte, ou la tordre (sens inverse, chute inventée, emphase…).</li>
+          <li>Option <em>avec micro</em> : aide à la réécoute seulement — la STT ne juge pas.</li>
+          <li>Les autres votent puis chassent les mots ajoutés.</li>
+          <li><strong>Arbitrage</strong> : le groupe valide les ajouts et si le défi a été réussi.</li>
+          <li>Plus l’impro réussit son défi <em>sans se faire cramer</em>, plus elle gagne.</li>
         </ol>
         <button class="btn btn-primary" data-go="setup">C’est compris — jouer</button>
       </div>
     </section>
 
-    <!-- Setup -->
     <section class="screen" id="screen-setup" data-screen="setup">
       <div class="panel">
         <button class="back" data-go="home">← Retour</button>
         <h2>Préparer la soirée</h2>
-        <p class="hint">Minimum 3 joueurs. Tournez l’écran vers le lecteur à chaque manche.</p>
+        <p class="hint">Minimum 3 joueurs.</p>
 
         <label class="field">
           <span>Noms des joueurs</span>
@@ -70,6 +67,56 @@
           </div>
         </label>
         <ul class="player-list" id="player-list"></ul>
+
+        <fieldset class="mode-field">
+          <legend>Source des textes</legend>
+          <label class="mode-option">
+            <input type="radio" name="text-source" value="wikipedia" checked />
+            <span>
+              <strong>Wikipédia (conseillé)</strong>
+              Générateur illimité : des milliers de résumés FR, nouveaux à chaque partie.
+            </span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="text-source" value="actu" />
+            <span>
+              <strong>Actu (Wikinews)</strong>
+              Articles d’actualité via Wikinews.
+            </span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="text-source" value="mix" />
+            <span>
+              <strong>Mix</strong>
+              Wikipédia + Wikinews.
+            </span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="text-source" value="citations" />
+            <span>
+              <strong>Citations</strong>
+              Dire la vraie citation… ou la tordre / prolonger. Domaine public + citations inventées du jeu (pas de fausses attributions à des vivants).
+            </span>
+          </label>
+        </fieldset>
+
+        <fieldset class="mode-field">
+          <legend>Mode micro</legend>
+          <label class="mode-option">
+            <input type="radio" name="voice-mode" value="human" checked />
+            <span>
+              <strong>Sans micro (recommandé)</strong>
+              Vote + chasse + arbitrage du groupe. Pas de STT.
+            </span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="voice-mode" value="assist" />
+            <span>
+              <strong>Avec micro (aide)</strong>
+              Enregistrement pour réécouter. La STT ne décide pas des points.
+            </span>
+          </label>
+        </fieldset>
 
         <label class="field">
           <span>Nombre de manches</span>
@@ -81,68 +128,180 @@
           </select>
         </label>
 
+        <p class="hint" id="load-status" hidden></p>
         <button class="btn btn-primary" id="start-game" disabled>Commencer</button>
       </div>
     </section>
 
-    <!-- Passation / regard ailleurs -->
     <section class="screen" id="screen-pass" data-screen="pass">
       <div class="panel center">
         <p class="eyebrow" id="pass-round">Manche 1</p>
-        <h2 id="pass-title">Passez l’écran à…</h2>
+        <h2>Passez l’écran à</h2>
         <p class="big-name" id="pass-name">—</p>
         <p class="hint">Les autres : regardez ailleurs jusqu’à ce que le lecteur dise « Prêt ».</p>
         <button class="btn btn-primary" id="reveal-mission">Je suis le lecteur — voir ma mission</button>
       </div>
     </section>
 
-    <!-- Mission secrète -->
     <section class="screen" id="screen-mission" data-screen="mission">
       <div class="panel center mission-panel">
         <p class="eyebrow">Mission secrète — pour tes yeux seuls</p>
         <div class="mission-badge" id="mission-badge">—</div>
+        <div class="challenge-card" id="challenge-card" hidden>
+          <p class="live-label">Défi secret</p>
+          <p class="challenge-title" id="challenge-title"></p>
+          <p class="challenge-detail" id="challenge-detail"></p>
+        </div>
         <p class="mission-help" id="mission-help"></p>
         <button class="btn btn-primary" id="show-text">Afficher le texte</button>
       </div>
     </section>
 
-    <!-- Lecture -->
     <section class="screen" id="screen-read" data-screen="read">
       <div class="read-layout">
         <div class="read-meta">
           <span id="read-reader">Lecteur</span>
-          <span class="timer" id="timer">0:45</span>
+          <span class="source-pill" id="text-source-pill"></span>
         </div>
+
+        <p class="song-title" id="song-title" hidden></p>
+
+        <div class="rec-bar" id="rec-bar">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span id="rec-status">Prêt</span>
+        </div>
+
         <article class="script" id="script-text"></article>
         <p class="whisper" id="read-whisper"></p>
-        <button class="btn btn-primary" id="finish-reading">J’ai fini de lire</button>
+        <p class="challenge-inline" id="challenge-inline" hidden></p>
+
+        <div class="live-box" id="live-box">
+          <p class="live-label">Transcription en direct (aide seulement)</p>
+          <p class="live-text" id="live-transcript">Appuie sur « Démarrer » puis parle…</p>
+        </div>
+
+        <div class="cta-row" id="read-actions"></div>
       </div>
     </section>
 
-    <!-- Vote -->
+    <section class="screen" id="screen-transcript" data-screen="transcript">
+      <div class="panel">
+        <p class="eyebrow">Trace écrite (lecteur seul)</p>
+        <h2>Écris ce que tu as vraiment dit</h2>
+        <p class="hint warn-hint">
+          Prérempli avec l’original : corrige seulement ce que tu as changé / ajouté / enlevé.
+          Comme ça tu n’as pas à tout mémoriser. Les autres compareront ensuite à l’oreille + ce texte.
+        </p>
+
+        <p class="song-title" id="declare-song-title" hidden></p>
+
+        <audio id="playback" controls class="playback"></audio>
+
+        <div class="compare-preview">
+          <p class="live-label">Texte d’origine</p>
+          <p class="orig-preview" id="orig-preview"></p>
+        </div>
+
+        <label class="field">
+          <span>Ce que j’ai dit (éditable)</span>
+          <textarea id="transcript-edit" rows="6" placeholder="Écris ici ta version réelle…"></textarea>
+        </label>
+
+        <button type="button" class="btn btn-ghost" id="use-stt-draft" hidden>Remplir avec le brouillon micro</button>
+
+        <div class="cta-row" style="margin-top: 1rem">
+          <button class="btn btn-primary" id="to-vote">Valider ma version → votes</button>
+        </div>
+      </div>
+    </section>
+
     <section class="screen" id="screen-vote" data-screen="vote">
       <div class="panel">
         <p class="eyebrow" id="vote-round">Manche 1</p>
         <h2>À vous de juger</h2>
-        <p class="hint"><span id="vote-reader-name"></span> a-t-il·elle lu le texte… ou inventé des mots ?</p>
+        <p class="hint" id="vote-hint"><span id="vote-reader-name"></span> a-t-il·elle lu le texte… ou inventé des mots ?</p>
         <div class="vote-grid" id="vote-grid"></div>
-        <button class="btn btn-primary" id="submit-votes" disabled>Révéler la vérité</button>
+        <button class="btn btn-primary" id="submit-votes" disabled>Chasse aux mots</button>
       </div>
     </section>
 
-    <!-- Révélation -->
+    <section class="screen" id="screen-hunt" data-screen="hunt">
+      <div class="panel">
+        <p class="eyebrow">Chasse</p>
+        <h2 id="hunt-title">Quels mots ont été rajoutés ?</h2>
+        <p class="hint" id="hunt-hint">Notez les mots, locutions (2–3 mots) ou le contraire entendu (négation), séparés par des virgules.</p>
+        <div class="hunt-grid" id="hunt-grid"></div>
+        <button class="btn btn-primary" id="submit-hunt">Passer à l’arbitrage</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-validate" data-screen="validate">
+      <div class="panel">
+        <p class="eyebrow">Arbitrage humain</p>
+        <h2>Comparer &amp; valider</h2>
+        <p class="hint">Comparez l’origine et la version déclarée par le lecteur. Cochez / écrivez les vrais changements, puis comptez les points.</p>
+
+        <p class="song-title" id="validate-song-title" hidden></p>
+
+        <audio id="playback-validate" controls class="playback"></audio>
+
+        <div class="diff-grid">
+          <div>
+            <p class="live-label">Origine</p>
+            <p class="diff-box" id="val-original"></p>
+          </div>
+          <div id="val-spoken-wrap">
+            <p class="live-label">Version dite (déclarée)</p>
+            <p class="diff-box" id="val-spoken"></p>
+          </div>
+        </div>
+
+        <div id="stt-suggestions" class="suggest-block"></div>
+
+        <label class="field">
+          <span>Liste officielle des mots inventés (virgules)</span>
+          <textarea id="validated-additions" rows="3" placeholder="ex. violet, dragon rose, soudainement"></textarea>
+        </label>
+
+        <p class="whisper" id="validate-mission-hint"></p>
+
+        <div id="challenge-arbiter" class="challenge-arbiter" hidden>
+          <p class="live-label">Défi du lecteur</p>
+          <p id="challenge-arbiter-text"></p>
+          <label class="check-row">
+            <input type="checkbox" id="challenge-ok" />
+            <span id="challenge-ok-label">Défi réussi (contrainte respectée)</span>
+          </label>
+        </div>
+
+        <div class="score-legend">
+          <p class="live-label">Rappel score</p>
+          <p class="hint">
+            <strong>Inventeur</strong> : +4 / mot non cramé · paliers +3/+6 si 3+ ou 5+ invisibles · bonus défi / majorité trompée. Les mots trouvés = 0 pour lui.<br />
+            <strong>Détectives</strong> : +2 bon vote · +3 par mot inventé correctement trouvé.
+          </p>
+        </div>
+
+        <button class="btn btn-primary" id="confirm-validate">Valider &amp; compter les points</button>
+      </div>
+    </section>
+
     <section class="screen" id="screen-reveal" data-screen="reveal">
-      <div class="panel center">
+      <div class="panel">
         <p class="eyebrow">Révélation</p>
         <h2 id="reveal-title">—</h2>
         <p class="reveal-detail" id="reveal-detail"></p>
+
+        <audio id="playback-reveal" controls class="playback"></audio>
+
+        <p class="added-line" id="added-line"></p>
+
         <ul class="score-delta" id="score-delta"></ul>
         <div class="scoreboard mini" id="scoreboard-mini"></div>
         <button class="btn btn-primary" id="next-round">Manche suivante</button>
       </div>
     </section>
 
-    <!-- Fin -->
     <section class="screen" id="screen-end" data-screen="end">
       <div class="panel center">
         <p class="brand small">Jeux de Mots</p>
