@@ -100,6 +100,8 @@ const state = {
   scores: {},
   voiceMode: "human", // 'human' | 'assist'
   textSource: "wikipedia", // 'wikipedia' | 'actu' | 'citations'
+  prepSeconds: 8,
+  stakeAccuse: false,
   textPool: [],
   textMeta: [], // { source, title }
   totalRounds: 6,
@@ -643,6 +645,18 @@ function getTextSource() {
   return document.querySelector('input[name="text-source"]:checked')?.value || "wikipedia";
 }
 
+function getPrepSeconds() {
+  return Number($("#prep-seconds")?.value ?? 8);
+}
+
+function getStakeAccuse() {
+  return Boolean($("#stake-accuse")?.checked);
+}
+
+function isAccusationVote(vote) {
+  return vote === "impro" || vote === "modify" || vote === "invent";
+}
+
 /** Coupe à la fin d’une vraie phrase — jamais de « … » au milieu. */
 function clipText(raw, max = 340) {
   let t = String(raw)
@@ -848,6 +862,8 @@ async function startGame() {
   const status = $("#load-status");
   state.voiceMode = getVoiceMode();
   state.textSource = getTextSource();
+  state.prepSeconds = getPrepSeconds();
+  state.stakeAccuse = getStakeAccuse();
   state.totalRounds = Number($("#round-count").value);
   state.round = 0;
   state.readerIndex = Math.floor(Math.random() * state.players.length);
@@ -1233,9 +1249,49 @@ function showText() {
     inline.textContent = "";
   }
 
-  renderReadActions();
   clearInterval(state.timerId);
   show("read");
+  startPrepCountdown();
+}
+
+/** Countdown commun : texte visible, lecture bloquée jusqu’à 0. */
+function startPrepCountdown() {
+  const overlay = $("#prep-overlay");
+  const countEl = $("#prep-count");
+  const actions = $("#read-actions");
+  const total = Number(state.prepSeconds) || 0;
+
+  clearInterval(state.timerId);
+
+  if (!total) {
+    if (overlay) overlay.hidden = true;
+    renderReadActions();
+    return;
+  }
+
+  if (overlay) overlay.hidden = false;
+  let left = total;
+  if (countEl) countEl.textContent = String(left);
+  if (actions) {
+    actions.innerHTML = `<p class="hint prep-wait">Préparation ${left}s — tout le monde attend…</p>`;
+  }
+
+  state.timerId = setInterval(() => {
+    left -= 1;
+    if (countEl) countEl.textContent = String(Math.max(0, left));
+    if (actions) {
+      actions.innerHTML =
+        left > 0
+          ? `<p class="hint prep-wait">Préparation ${left}s — tout le monde attend…</p>`
+          : "";
+    }
+    if (left <= 0) {
+      clearInterval(state.timerId);
+      state.timerId = null;
+      if (overlay) overlay.hidden = true;
+      renderReadActions();
+    }
+  }, 1000);
 }
 
 /** Affiche le titre d’article (hors citations : l’auteur est sous la citation). */
@@ -1424,9 +1480,12 @@ function startVote() {
   const reader = state.players[state.readerIndex];
   $("#vote-round").textContent = `Manche ${state.round} / ${state.totalRounds}`;
   $("#vote-reader-name").textContent = reader;
+  const stakeNote = state.stakeAccuse
+    ? ` <em>Mise active :</em> accuser engage 1 pt (+3 si vrai, −1 si faux).`
+    : "";
   $("#vote-hint").innerHTML = isCitationsMode()
-    ? `<span id="vote-reader-name">${escapeHtml(reader)}</span> : citation exacte, modifiée, ou inventée ?`
-    : `<span id="vote-reader-name">${escapeHtml(reader)}</span> a-t-il·elle lu le texte… ou inventé des mots ?`;
+    ? `<span id="vote-reader-name">${escapeHtml(reader)}</span> : citation exacte, 1 mot changé, ou inventée ?${stakeNote}`
+    : `<span id="vote-reader-name">${escapeHtml(reader)}</span> a-t-il·elle lu le texte… ou inventé des mots ?${stakeNote}`;
 
   const voters = state.players.filter((p) => p !== reader);
   $("#vote-grid").innerHTML = voters
@@ -1698,18 +1757,33 @@ function confirmValidateAndScore() {
   const truth = isCitationsMode() ? citationTruth() : state.mission;
 
   // Pass 1 : votes + hits détectives
-  // Anti-suspicion citations :
-  // - accuser à tort (exacte → « modifiée/inventée ») = -1
-  // - vote « modifiée/inventée » juste sans nommer l’écart = 0 (il faut justifier)
+  // Option mise : accuser (impro / 1 mot / inventée) → +3 si vrai, −1 si faux
+  // Citations sans mise : fausse accusation −1 ; accuser sans nommer l’écart → 0
   const voterResults = voters.map((name) => {
-    const voteOk = state.votes[name] === truth;
+    const vote = state.votes[name];
+    const voteOk = vote === truth;
     let pts = 0;
     const bits = [];
     const guessText = (state.guesses[name] || "").trim();
+    const accusing = isAccusationVote(vote);
+    const needsProof =
+      isCitationsMode() && (truth === "modify" || truth === "invent");
 
-    if (isCitationsMode()) {
+    if (state.stakeAccuse && accusing) {
       if (voteOk) {
-        const needsProof = truth === "modify" || truth === "invent";
+        if (needsProof && !guessText) {
+          bits.push("mise OK mais écart non nommé → 0");
+        } else {
+          pts += 3;
+          bits.push("+3 accusation juste (mise)");
+        }
+      } else {
+        fooled += 1;
+        pts -= 1;
+        bits.push("−1 accusation fausse (mise perdue)");
+      }
+    } else if (isCitationsMode()) {
+      if (voteOk) {
         if (needsProof && !guessText) {
           bits.push("vote juste mais sans nommer l’écart → 0");
         } else {
@@ -1718,9 +1792,9 @@ function confirmValidateAndScore() {
         }
       } else {
         fooled += 1;
-        if (truth === "fidele" && state.votes[name] !== "fidele") {
+        if (truth === "fidele" && accusing) {
           pts -= 1;
-          bits.push("-1 fausse accusation");
+          bits.push("−1 fausse accusation");
         } else {
           bits.push("vote faux");
         }

@@ -44,7 +44,8 @@
         <ol class="rules">
           <li><strong>Un lecteur</strong> reçoit une mission secrète : lecture fidèle, ou impro avec un <em>défi</em> (remplacer, lettre, négation, charge de mots…).</li>
           <li>En mode <em>Citations</em> : citation officielle entière « … » + auteur, ou invention. Soit <em>exacte</em>, soit <em>1 seul mot</em> changé, soit <em>inventée</em> (prénom + nom fictifs).</li>
-          <li><strong>Anti-suspicion</strong> : hésiter ne compte pas. Accuser à tort coûte des points ; pour marquer sur « modifiée / inventée », il faut <em>nommer</em> l’écart.</li>
+          <li><strong>Temps mort</strong> (option) : countdown commun avant de pouvoir lire — plus personne ne se doute juste parce que tu réfléchis.</li>
+          <li><strong>Anti-suspicion</strong> : hésiter ≠ coupable. Option <em>mise</em> : accuser engage 1 pt (+3 si vrai, −1 si faux). En citations, nommer l’écart reste requis.</li>
           <li>Option <em>avec micro</em> : aide à la réécoute seulement — la STT ne juge pas.</li>
           <li>Les autres votent puis chassent les mots ajoutés.</li>
           <li><strong>Arbitrage</strong> : le groupe valide les ajouts et si le défi a été réussi.</li>
@@ -121,6 +122,28 @@
           </select>
         </label>
 
+        <label class="field">
+          <span>Temps mort avant lecture (même pour tous)</span>
+          <select id="prep-seconds">
+            <option value="0">Off</option>
+            <option value="5">5 s</option>
+            <option value="8" selected>8 s</option>
+            <option value="10">10 s</option>
+            <option value="12">12 s</option>
+          </select>
+        </label>
+
+        <fieldset class="mode-field">
+          <legend>Options de score</legend>
+          <label class="mode-option">
+            <input type="checkbox" id="stake-accuse" />
+            <span>
+              <strong>Mise pour accuser (double or)</strong>
+              Voter « invente / 1 mot / inventée » engage 1 pt : bon → +3, faux → −1.
+            </span>
+          </label>
+        </fieldset>
+
         <p class="hint" id="load-status" hidden></p>
         <button class="btn btn-primary" id="start-game" disabled>Commencer</button>
       </div>
@@ -155,6 +178,12 @@
         <div class="read-meta">
           <span id="read-reader">Lecteur</span>
           <span class="source-pill" id="text-source-pill"></span>
+        </div>
+
+        <div class="prep-overlay" id="prep-overlay" hidden>
+          <p class="prep-label">Temps mort — tout le monde attend pareil</p>
+          <p class="prep-count" id="prep-count">8</p>
+          <p class="prep-hint">Lis / prépare en silence. La lecture se débloque à 0.</p>
         </div>
 
         <p class="song-title" id="song-title" hidden></p>

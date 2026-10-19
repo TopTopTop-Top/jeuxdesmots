@@ -23,6 +23,11 @@ Votes à 3 options. Anti-suspicion :
 - vote « 1 mot / inventée » sans **nommer** l’écart → **0** sur le vote
 - exacte crédible → bonus fort si les autres accusent à tort
 
+## Options de partie
+
+- **Temps mort** (5–12 s, défaut 8) : countdown commun avant de pouvoir lire — même fenêtre de préparation pour tout le monde
+- **Mise pour accuser** (option) : voter impro / 1 mot / inventée engage 1 pt → **+3** si vrai, **−1** si faux
+
 ## Modes micro
 
 - **Sans micro (recommandé)** — vote + chasse + arbitrage humain
