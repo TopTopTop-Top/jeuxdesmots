@@ -828,6 +828,47 @@ function isFranceLocation(loc) {
   );
 }
 
+/** Vignette OFF plus légère (400 → 200) pour charger plus vite. */
+function offThumbUrl(url) {
+  if (!url) return "";
+  return String(url)
+    .replace(/\.(400|full)\.(jpe?g|png|webp)/gi, ".200.$2")
+    .replace(/\.(\d{3,4})\.(jpe?g|png|webp)/gi, (m, size, ext) =>
+      Number(size) > 200 ? `.200.${ext}` : m
+    );
+}
+
+function preloadImage(url) {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve(false);
+      return;
+    }
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+async function preloadPriceImages(pool, onProgress) {
+  const urls = [...new Set(pool.map((p) => p.image).filter(Boolean))];
+  let done = 0;
+  // Par lots pour ne pas saturer le réseau
+  const chunk = 4;
+  for (let i = 0; i < urls.length; i += chunk) {
+    const slice = urls.slice(i, i + chunk);
+    await Promise.all(
+      slice.map(async (url) => {
+        await preloadImage(url);
+        done += 1;
+        if (onProgress) onProgress(done, urls.length);
+      })
+    );
+  }
+}
+
 function normalizeOpenPrice(item) {
   const product = item.product || {};
   const loc = item.location || {};
@@ -844,13 +885,14 @@ function normalizeOpenPrice(item) {
       : "");
   const enseigne =
     loc.osm_brand || loc.osm_name || "Enseigne inconnue";
+  const rawImage = product.image_url || "";
   return {
     source: "prix",
     price: Number(item.price),
     currency: item.currency || "EUR",
     name,
     quantity: qty,
-    image: product.image_url || "",
+    image: offThumbUrl(rawImage),
     enseigne,
     city: loc.osm_address_city || "",
     postcode: loc.osm_address_postcode || "",
@@ -865,10 +907,12 @@ function normalizeOpenPrice(item) {
 
 /** Prix FR récents via Open Prices (Open Food Facts). */
 async function fetchOpenPricesPool(need) {
-  const collected = [];
+  const withPhoto = [];
+  const noPhoto = [];
   const seen = new Set();
   let page = 1;
-  while (collected.length < need && page <= 6) {
+  const target = Math.max(need * 2, need + 4);
+  while (withPhoto.length + noPhoto.length < target && page <= 8) {
     const url =
       `https://prices.openfoodfacts.org/api/v1/prices` +
       `?currency=EUR&location_osm_address_country_code=fr` +
@@ -886,20 +930,34 @@ async function fetchOpenPricesPool(need) {
       const key = `${entry.name}|${entry.enseigne}|${entry.price}|${entry.date}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      collected.push(entry);
-      if (collected.length >= need) break;
+      if (entry.image) withPhoto.push(entry);
+      else noPhoto.push(entry);
+      if (withPhoto.length >= target) break;
     }
     page += 1;
   }
+  // Priorité aux produits AVEC photo
+  const collected = shuffle(withPhoto).concat(shuffle(noPhoto));
   if (!collected.length) {
     throw new Error("Aucun prix FR trouvé sur Open Prices.");
   }
-  return shuffle(collected).slice(0, need);
+  return collected.slice(0, need);
 }
 
 async function buildTextPool(source, n) {
   if (source === "prix") {
-    return fetchOpenPricesPool(Math.max(n, n + 2));
+    const pool = await fetchOpenPricesPool(Math.max(n, n + 2));
+    const status = $("#load-status");
+    if (status) {
+      status.hidden = false;
+      status.textContent = "Préchargement des photos…";
+    }
+    await preloadPriceImages(pool, (done, total) => {
+      if (status) {
+        status.textContent = `Préchargement photos ${done}/${total}…`;
+      }
+    });
+    return pool;
   }
 
   if (source === "citations") {
@@ -1625,11 +1683,30 @@ function startPriceRound() {
   $("#price-card").hidden = false;
 
   const img = $("#price-image");
+  const wrap = $("#price-card");
   if (entry.image) {
     img.hidden = false;
-    img.src = entry.image;
     img.alt = entry.name;
+    wrap?.classList.add("img-loading");
+    img.classList.remove("is-ready");
+    const showReady = () => {
+      wrap?.classList.remove("img-loading");
+      img.classList.add("is-ready");
+    };
+    img.onload = showReady;
+    img.onerror = () => {
+      wrap?.classList.remove("img-loading");
+      img.hidden = true;
+    };
+    // Déjà en cache navigateur si préchargée → onload peut avoir déjà tiré
+    img.src = entry.image;
+    if (img.complete && img.naturalWidth) showReady();
+    // Précharge la manche suivante pendant que les joueurs jouent
+    const next = state.pricePool[state.round % state.pricePool.length];
+    if (next?.image) preloadImage(next.image);
   } else {
+    wrap?.classList.remove("img-loading");
+    img.classList.remove("is-ready");
     img.hidden = true;
     img.removeAttribute("src");
   }
